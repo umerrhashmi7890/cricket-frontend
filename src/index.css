@@ -1,0 +1,235 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cricket Court Booking System Design Tokens - Yellow, Green, Black Theme */
+    --background: 60 10% 96%;
+    --foreground: 0 0% 5%;
+
+    --card: 60 20% 98%;
+    --card-foreground: 0 0% 5%;
+
+    --popover: 60 20% 98%;
+    --popover-foreground: 0 0% 5%;
+
+    /* Golden Yellow - Primary Brand */
+    --primary: 45 93% 47%;
+    --primary-foreground: 0 0% 5%;
+
+    /* Forest Green - Secondary */
+    --secondary: 142 71% 35%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 60 10% 90%;
+    --muted-foreground: 0 0% 40%;
+
+    /* Lime Green - Accent */
+    --accent: 84 81% 44%;
+    --accent-foreground: 0 0% 5%;
+
+    /* Status Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 5%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 60 10% 85%;
+    --input: 60 10% 85%;
+    --ring: 45 93% 47%;
+
+    --radius: 0.75rem;
+
+    /* Admin Sidebar - Dark Black */
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 60 10% 96%;
+    --sidebar-primary: 45 93% 47%;
+    --sidebar-primary-foreground: 0 0% 5%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 60 10% 96%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 45 93% 47%;
+
+    /* Booking Calendar Colors */
+    --slot-available: 142 71% 45%;
+    --slot-booked: 0 0% 60%;
+    --slot-weekday-day: 45 93% 47%;
+    --slot-weekday-night: 0 0% 20%;
+    --slot-weekend-day: 84 81% 44%;
+    --slot-weekend-night: 142 71% 35%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(0 0% 8%) 0%,
+      hsl(0 0% 20%) 100%
+    );
+    --gradient-card: linear-gradient(
+      145deg,
+      hsl(60 20% 98%) 0%,
+      hsl(60 10% 96%) 100%
+    );
+    --gradient-dark: linear-gradient(
+      135deg,
+      hsl(0 0% 5%) 0%,
+      hsl(0 0% 12%) 100%
+    );
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 60 10% 96%;
+    --card: 0 0% 10%;
+    --card-foreground: 60 10% 96%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 60 10% 96%;
+    --primary: 45 93% 47%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 142 71% 35%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 60 5% 60%;
+    --accent: 84 81% 44%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 60 10% 96%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 45 93% 47%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  .hero-gradient {
+    background: var(--gradient-hero);
+  }
+
+  .card-gradient {
+    background: var(--gradient-card);
+  }
+
+  .dark-gradient {
+    background: var(--gradient-dark);
+  }
+
+  .glass-effect {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
+
+  .slot-available {
+    @apply bg-success/20 border-success text-success hover:bg-success/30 cursor-pointer;
+  }
+
+  .slot-booked {
+    @apply bg-muted border-muted-foreground/20 text-muted-foreground cursor-not-allowed;
+  }
+
+  .slot-selected {
+    @apply bg-primary border-primary text-primary-foreground;
+  }
+
+  .price-weekday-day {
+    @apply bg-secondary/20 border-secondary;
+  }
+
+  .price-weekday-night {
+    @apply bg-primary/20 border-primary;
+  }
+
+  .price-weekend-day {
+    @apply bg-accent/20 border-accent;
+  }
+
+  .price-weekend-night {
+    @apply bg-warning/20 border-warning;
+  }
+
+  .status-badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .status-confirmed {
+    @apply bg-success/20 text-success;
+  }
+
+  .status-pending {
+    @apply bg-warning/20 text-warning;
+  }
+
+  .status-completed {
+    @apply bg-secondary/20 text-secondary;
+  }
+
+  .status-cancelled {
+    @apply bg-destructive/20 text-destructive;
+  }
+
+  .admin-card {
+    @apply bg-card rounded-xl border shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  .stat-card {
+    @apply bg-card rounded-xl border p-6 hover:shadow-lg transition-all duration-300;
+  }
+
+  /* Override shadcn calendar accent background when a day is selected (Booking page) */
+  .booking-calendar :is(button, div, td):has([aria-selected]) {
+    background-color: transparent !important;
+  }
+
+  /* Override shadcn calendar accent background when a day is selected (Admin New Booking) */
+  .admin-booking-calendar :is(button, div, td):has([aria-selected]) {
+    background-color: transparent !important;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-hero);
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
