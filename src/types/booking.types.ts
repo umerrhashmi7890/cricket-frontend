@@ -3,6 +3,7 @@ export interface Court {
   name: string;
   description: string;
   imageUrl?: string;
+  features?: string[];
   status: "active" | "inactive" | "maintenance";
   createdAt: string;
   updatedAt: string;

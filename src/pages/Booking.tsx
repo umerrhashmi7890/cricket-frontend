@@ -33,6 +33,9 @@ const Booking = () => {
   const [pricing, setPricing] = useState<Pricing[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
+  const [courtAvailability, setCourtAvailability] = useState<
+    Record<string, number>
+  >({});
 
   // Fetch courts on mount
   useEffect(() => {
@@ -92,6 +95,13 @@ const Booking = () => {
       fetchBookedSlots();
     }
   }, [selectedCourt, selectedDate, pricing]);
+
+  // Fetch availability for all courts when date or courts change
+  useEffect(() => {
+    if (courts.length > 0 && selectedDate) {
+      fetchAllCourtsAvailability();
+    }
+  }, [courts, selectedDate]);
 
   // Fetch booked slots for selected court and date
   const fetchBookedSlots = async () => {
@@ -157,6 +167,88 @@ const Booking = () => {
       });
     } finally {
       setLoadingSlots(false);
+    }
+  };
+
+  // Fetch availability for all courts
+  const fetchAllCourtsAvailability = async () => {
+    if (!selectedDate || courts.length === 0) {
+      return;
+    }
+
+    try {
+      const formattedDate = format(selectedDate, "yyyy-MM-dd");
+
+      // Get all time slots to check
+      const slotsToCheck: string[] = [];
+
+      // Check if selected date is today
+      const today = new Date();
+      const isToday =
+        selectedDate.getDate() === today.getDate() &&
+        selectedDate.getMonth() === today.getMonth() &&
+        selectedDate.getFullYear() === today.getFullYear();
+
+      const currentHour = today.getHours();
+
+      // 9 AM to 11 PM
+      for (let hour = 9; hour < 24; hour++) {
+        const isPastHour = isToday && hour <= currentHour;
+        if (!isPastHour) {
+          slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+        }
+      }
+
+      // 12 AM to 4 AM (next day)
+      for (let hour = 0; hour < 4; hour++) {
+        const isPastHour = isToday && currentHour < 9;
+        if (!isPastHour) {
+          slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+        }
+      }
+
+      const availability: Record<string, number> = {};
+
+      // Check availability for each court
+      for (const court of courts) {
+        let availableCount = 0;
+
+        for (const slot of slotsToCheck) {
+          const [hour] = slot.split(":").map(Number);
+          let endHour = hour + 1;
+
+          // Handle midnight boundary (24:00 -> 00:00)
+          if (endHour >= 24) {
+            endHour = endHour - 24;
+          }
+
+          const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+
+          try {
+            const response = await bookingApi.checkAvailability({
+              courtId: court.id,
+              bookingDate: formattedDate,
+              startTime: slot,
+              endTime,
+            });
+
+            if (response.data?.available) {
+              availableCount++;
+            }
+          } catch (error) {
+            console.error(
+              `Failed to check availability for ${court.name} at ${slot}:`,
+              error,
+            );
+          }
+        }
+
+        availability[court.id] = availableCount;
+      }
+
+      setCourtAvailability(availability);
+    } catch (error) {
+      console.error("Failed to fetch court availability:", error);
     }
   };
 
@@ -492,19 +584,52 @@ const Booking = () => {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {courts.map((court) => (
-                      <button
-                        key={court.id}
-                        onClick={() => handleCourtChange(court.id)}
-                        className={`w-full p-3 rounded-lg text-sm font-medium transition-colors text-left ${
-                          selectedCourt === court.id
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        }`}
-                      >
-                        {court.name}
-                      </button>
-                    ))}
+                    {courts.map((court) => {
+                      const availableSlots =
+                        courtAvailability[court.id] ?? null;
+                      const isFullyBooked = availableSlots === 0;
+
+                      return (
+                        <button
+                          key={court.id}
+                          onClick={() => handleCourtChange(court.id)}
+                          disabled={isFullyBooked}
+                          className={`w-full p-3 rounded-lg text-sm font-medium transition-colors text-left relative ${
+                            isFullyBooked
+                              ? "bg-muted/50 text-muted-foreground cursor-not-allowed opacity-60"
+                              : selectedCourt === court.id
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{court.name}</span>
+                            {availableSlots !== null && (
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded-full ${
+                                  isFullyBooked
+                                    ? "bg-destructive/20 text-destructive"
+                                    : availableSlots < 5
+                                      ? "bg-warning/20 text-warning"
+                                      : selectedCourt === court.id
+                                        ? "bg-primary-foreground/20 text-primary-foreground"
+                                        : "bg-primary/20 text-primary"
+                                }`}
+                              >
+                                {isFullyBooked
+                                  ? "Full"
+                                  : `${availableSlots} slots`}
+                              </span>
+                            )}
+                          </div>
+                          {isFullyBooked && (
+                            <div className="text-xs mt-1 text-muted-foreground">
+                              No slots available
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
