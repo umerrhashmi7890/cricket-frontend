@@ -166,6 +166,27 @@ export const bookingApi = {
       },
     ),
 
+  checkBatchAvailability: (params: {
+    bookingDate: string;
+    timeSlots: Array<{
+      startTime: string;
+      endTime: string;
+    }>;
+    courtIds?: string[];
+  }) =>
+    apiCall<{
+      [courtId: string]: {
+        [timeSlotKey: string]: {
+          available: boolean;
+          startTime: string;
+          endTime: string;
+        };
+      };
+    }>("/bookings/check-batch-availability", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+
   create: (data: BookingCreateData) =>
     apiCall<Booking>("/bookings", {
       method: "POST",

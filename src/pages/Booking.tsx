@@ -103,7 +103,7 @@ const Booking = () => {
     }
   }, [courts, selectedDate]);
 
-  // Fetch booked slots for selected court and date
+  // Fetch booked slots for selected court and date using batch endpoint
   const fetchBookedSlots = async () => {
     // Don't fetch if court hasn't been selected yet or is empty
     if (!selectedCourt || selectedCourt === "" || !selectedDate) {
@@ -114,47 +114,43 @@ const Booking = () => {
       setLoadingSlots(true);
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
 
-      // Get all time slots to check
-      const slotsToCheck: string[] = [];
+      // Build time slots array
+      const timeSlots: Array<{ startTime: string; endTime: string }> = [];
 
       // 9 AM to 11 PM
       for (let hour = 9; hour < 24; hour++) {
-        slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+        const startTime = `${hour.toString().padStart(2, "0")}:00`;
+        let endHour = hour + 1;
+        if (endHour >= 24) endHour = endHour - 24;
+        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+        timeSlots.push({ startTime, endTime });
       }
 
       // 12 AM to 4 AM (next day)
       for (let hour = 0; hour < 4; hour++) {
-        slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+        const startTime = `${hour.toString().padStart(2, "0")}:00`;
+        const endHour = hour + 1;
+        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+        timeSlots.push({ startTime, endTime });
       }
 
-      // Check each slot for conflicts
+      // Single batch API call instead of 80+ individual calls
+      const response = await bookingApi.checkBatchAvailability({
+        bookingDate: formattedDate,
+        timeSlots,
+        courtIds: [selectedCourt],
+      });
+
+      // Extract booked slots from batch response
       const booked = new Set<string>();
+      const courtData = response.data?.[selectedCourt];
 
-      for (const slot of slotsToCheck) {
-        const [hour] = slot.split(":").map(Number);
-        let endHour = hour + 1;
-
-        // Handle midnight boundary (24:00 -> 00:00)
-        if (endHour >= 24) {
-          endHour = endHour - 24;
-        }
-
-        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
-
-        try {
-          const response = await bookingApi.checkAvailability({
-            courtId: selectedCourt,
-            bookingDate: formattedDate,
-            startTime: slot,
-            endTime,
-          });
-
-          if (!response.data?.available) {
-            booked.add(slot);
+      if (courtData) {
+        Object.entries(courtData).forEach(([timeSlotKey, slotData]) => {
+          if (!slotData.available) {
+            booked.add(slotData.startTime);
           }
-        } catch (error) {
-          console.error(`Failed to check availability for ${slot}:`, error);
-        }
+        });
       }
 
       setBookedSlots(booked);
@@ -170,7 +166,7 @@ const Booking = () => {
     }
   };
 
-  // Fetch availability for all courts
+  // Fetch availability for all courts using batch endpoint - OPTIMIZED!
   const fetchAllCourtsAvailability = async () => {
     if (!selectedDate || courts.length === 0) {
       return;
@@ -178,9 +174,6 @@ const Booking = () => {
 
     try {
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
-
-      // Get all time slots to check
-      const slotsToCheck: string[] = [];
 
       // Check if selected date is today
       const today = new Date();
@@ -191,11 +184,18 @@ const Booking = () => {
 
       const currentHour = today.getHours();
 
+      // Build time slots array
+      const timeSlots: Array<{ startTime: string; endTime: string }> = [];
+
       // 9 AM to 11 PM
       for (let hour = 9; hour < 24; hour++) {
         const isPastHour = isToday && hour <= currentHour;
         if (!isPastHour) {
-          slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+          const startTime = `${hour.toString().padStart(2, "0")}:00`;
+          let endHour = hour + 1;
+          if (endHour >= 24) endHour = endHour - 24;
+          const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+          timeSlots.push({ startTime, endTime });
         }
       }
 
@@ -203,47 +203,34 @@ const Booking = () => {
       for (let hour = 0; hour < 4; hour++) {
         const isPastHour = isToday && currentHour < 9;
         if (!isPastHour) {
-          slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+          const startTime = `${hour.toString().padStart(2, "0")}:00`;
+          const endHour = hour + 1;
+          const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+          timeSlots.push({ startTime, endTime });
         }
       }
 
+      // Single batch API call for all courts - replaces 80+ individual requests!
+      const courtIds = courts.map((court) => court.id);
+      const response = await bookingApi.checkBatchAvailability({
+        bookingDate: formattedDate,
+        timeSlots,
+        courtIds,
+      });
+
+      // Calculate available slot count for each court
       const availability: Record<string, number> = {};
 
-      // Check availability for each court
-      for (const court of courts) {
-        let availableCount = 0;
-
-        for (const slot of slotsToCheck) {
-          const [hour] = slot.split(":").map(Number);
-          let endHour = hour + 1;
-
-          // Handle midnight boundary (24:00 -> 00:00)
-          if (endHour >= 24) {
-            endHour = endHour - 24;
-          }
-
-          const endTime = `${endHour.toString().padStart(2, "0")}:00`;
-
-          try {
-            const response = await bookingApi.checkAvailability({
-              courtId: court.id,
-              bookingDate: formattedDate,
-              startTime: slot,
-              endTime,
-            });
-
-            if (response.data?.available) {
+      if (response.data) {
+        Object.entries(response.data).forEach(([courtId, slots]) => {
+          let availableCount = 0;
+          Object.values(slots).forEach((slot) => {
+            if (slot.available) {
               availableCount++;
             }
-          } catch (error) {
-            console.error(
-              `Failed to check availability for ${court.name} at ${slot}:`,
-              error,
-            );
-          }
-        }
-
-        availability[court.id] = availableCount;
+          });
+          availability[courtId] = availableCount;
+        });
       }
 
       setCourtAvailability(availability);
