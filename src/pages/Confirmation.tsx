@@ -36,6 +36,9 @@ const Confirmation = () => {
   const [error, setError] = useState<string | null>(null);
   const [bookingDetails, setBookingDetails] =
     useState<BookingConfirmation | null>(null);
+  const [pollingStatus, setPollingStatus] = useState<string>(
+    "Verifying payment...",
+  );
 
   useEffect(() => {
     const createBookingAfterPayment = async () => {
@@ -153,11 +156,98 @@ const Confirmation = () => {
               return; // Don't create duplicate booking
             }
           } catch (err) {
-            // Booking doesn't exist yet - proceed to create it
-            console.log("ℹ️ No existing booking found, will create new one");
+            // Booking doesn't exist yet - webhook is still processing
+            console.log(
+              "ℹ️ No existing booking found, waiting for webhook to create it...",
+            );
+
+            setPollingStatus("Payment confirmed! Creating your booking...");
+
+            // Poll for booking creation (webhook should create it within a few seconds)
+            let attempts = 0;
+            const maxAttempts = 10; // Poll for up to 10 seconds
+
+            while (attempts < maxAttempts) {
+              await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+              attempts++;
+
+              // Update status message every 5 seconds
+              if (attempts % 5 === 0) {
+                setPollingStatus(
+                  `Still processing... (${attempts}/${maxAttempts} seconds)`,
+                );
+              }
+
+              try {
+                const pollingResponse =
+                  await bookingApi.getByPaymentId(paymentId);
+
+                if (pollingResponse.success && pollingResponse.data) {
+                  // Booking created by webhook!
+                  const booking = pollingResponse.data;
+                  const bookingId = booking._id || booking.id;
+
+                  console.log(
+                    `✅ Booking created by webhook (attempt ${attempts}):`,
+                    bookingId,
+                  );
+
+                  const courtName =
+                    typeof booking.court === "string"
+                      ? "Court"
+                      : booking.court?.name || "Court";
+
+                  const customerData =
+                    typeof booking.customer === "object" && booking.customer
+                      ? booking.customer
+                      : null;
+
+                  let duration = "N/A";
+                  if (booking.durationHours) {
+                    duration = `${booking.durationHours} hour${booking.durationHours > 1 ? "s" : ""}`;
+                  }
+
+                  setBookingDetails({
+                    bookingId: bookingId || "N/A",
+                    court: courtName,
+                    date: format(
+                      new Date(booking.bookingDate),
+                      "EEEE, MMMM d, yyyy",
+                    ),
+                    time: `${booking.startTime} - ${booking.endTime}`,
+                    slots: [],
+                    duration: duration,
+                    totalPaid: `${(booking.amountPaid || booking.finalPrice || 0).toFixed(2)} SAR`,
+                    paymentMethod:
+                      paymentResponse.data.source?.company || "Card",
+                    customerName: customerData?.name || "N/A",
+                    customerPhone: customerData?.phone || "N/A",
+                    customerEmail: customerData?.email || "",
+                  });
+
+                  setLoading(false);
+                  toast({
+                    title: "Booking Confirmed!",
+                    description: "Your court has been successfully reserved",
+                    variant: "default",
+                  });
+                  return;
+                }
+              } catch (pollErr) {
+                // Booking still not created, continue polling
+                console.log(`⏳ Polling attempt ${attempts}/${maxAttempts}...`);
+              }
+            }
+
+            // If we reach here, webhook didn't create booking in time
+            setError(
+              "Booking is being processed. You will receive a confirmation email shortly with your booking details.",
+            );
+            setLoading(false);
+            return;
           }
 
-          // Proceed with booking creation
+          // Payment is pending or failed (this code below should never be reached for paid status)
         } else if (paymentResponse.data?.status === "pending") {
           // Payment is being processed - create booking as pending
           setError(
@@ -173,134 +263,16 @@ const Confirmation = () => {
           setLoading(false);
           return;
         }
-
-        // If no booking data in state or sessionStorage, try to get from payment metadata
-        if (!bookingData?.courtId && paymentResponse.data?.metadata) {
-          const metadata = paymentResponse.data.metadata;
-          bookingData = {
-            courtId: metadata.courtId,
-            court: metadata.court,
-            date: metadata.date,
-            slots:
-              typeof metadata.slots === "string"
-                ? JSON.parse(metadata.slots)
-                : [],
-            customerName: metadata.customerName,
-            customerPhone: metadata.customerPhone,
-            customerEmail: metadata.customerEmail,
-            name: metadata.customerName,
-            phone: metadata.customerPhone,
-            email: metadata.customerEmail,
-            promoCode: metadata.promoCode,
-            finalTotal: metadata.finalTotal,
-            amountNow: metadata.amountNow,
-          };
-        }
-
-        // Payment successful, create booking
-        if (
-          !bookingData?.courtId ||
-          !bookingData?.date ||
-          !bookingData?.slots
-        ) {
-          setError("Booking information incomplete");
-          setLoading(false);
-          return;
-        }
-
-        // Convert slots array to startTime and endTime
-        const slots = bookingData.slots;
-
-        // Sort slots based on booking flow order (9AM-11PM, then 12AM-4AM)
-        // This handles midnight crossing: ['00:00', '23:00'] -> ['23:00', '00:00']
-        const sortedSlots = [...slots].sort((a, b) => {
-          const [aHour, aMin] = a.split(":").map(Number);
-          const [bHour, bMin] = b.split(":").map(Number);
-
-          // Operating hours: 9AM-11PM (9-23), then 12AM-4AM (0-3)
-          // Map early morning (0-3) to values after 23:00 for sorting
-          const getOrderValue = (hour: number) => {
-            if (hour >= 0 && hour <= 3) {
-              return hour + 24; // 00:00 becomes 24, 01:00 becomes 25, etc.
-            }
-            return hour; // 9-23 stay as is
-          };
-
-          const aOrder = getOrderValue(aHour) * 60 + aMin;
-          const bOrder = getOrderValue(bHour) * 60 + bMin;
-          return aOrder - bOrder;
-        });
-
-        const startTime = sortedSlots[0]; // First slot (e.g., "23:00")
-
-        // Calculate end time: last slot + 1 hour
-        // Each slot represents a 1-hour block, so if slots = ["23:00", "00:00"],
-        // booking is 23:00-01:00 (2 hours)
-        const lastSlot = sortedSlots[sortedSlots.length - 1];
-        const [lastHour, lastMinute] = lastSlot.split(":").map(Number);
-        const endHour = (lastHour + 1) % 24; // Handle midnight boundary
-        const endTime = `${endHour.toString().padStart(2, "0")}:${lastMinute.toString().padStart(2, "0")}`;
-
-        console.log("Booking time calculation:", {
-          originalSlots: slots,
-          sortedSlots,
-          startTime,
-          endTime,
-          duration: `${sortedSlots.length} hour(s)`,
-        });
-
-        const bookingPayload = {
-          courtId: bookingData.courtId,
-          bookingDate: bookingData.date,
-          startTime: startTime,
-          endTime: endTime,
-          customerPhone: bookingData.customerPhone || bookingData.phone,
-          customerName: bookingData.customerName || bookingData.name,
-          customerEmail: bookingData.customerEmail || bookingData.email,
-          notes: bookingData.notes || "",
-          promoCode: bookingData.promoCode || undefined,
-          paymentId: paymentId,
-          paymentStatus: "paid",
-          amountPaid: paymentResponse.data.amount / 100, // Convert halalas to SAR
-        };
-
-        const bookingResponse = await bookingApi.create(bookingPayload);
-
-        if (bookingResponse.success && bookingResponse.data) {
-          const newBookingId =
-            bookingResponse.data._id || bookingResponse.data.id;
-
-          setBookingDetails({
-            bookingId: newBookingId || "N/A",
-            court: bookingData.court,
-            date: format(new Date(bookingData.date), "EEEE, MMMM d, yyyy"),
-            time: `${startTime} - ${endTime}`,
-            slots: slots,
-            duration: `${slots.length} hour${slots.length > 1 ? "s" : ""}`,
-            totalPaid: `${(paymentResponse.data.amount / 100).toFixed(2)} SAR`,
-            paymentMethod: paymentResponse.data.source?.company || "Card",
-            customerName: bookingData.customerName || bookingData.name,
-            customerPhone: bookingData.customerPhone || bookingData.phone,
-            customerEmail: bookingData.customerEmail || bookingData.email,
-          });
-
-          toast({
-            title: "Booking Confirmed!",
-            description: "Your court has been successfully reserved",
-            variant: "default",
-          });
-        } else {
-          setError("Failed to create booking");
-        }
       } catch (err) {
-        console.error("Booking creation error:", err);
+        console.error("Booking confirmation error:", err);
         const errorMessage =
-          err instanceof Error ? err.message : "Failed to create booking";
+          err instanceof Error ? err.message : "Failed to load booking details";
         setError(errorMessage);
         toast({
-          title: "Booking Error",
+          title: "Error",
           description:
-            errorMessage || "Failed to create booking. Please contact support.",
+            errorMessage ||
+            "Failed to load booking. Please contact support with your payment ID.",
           variant: "destructive",
         });
       } finally {
@@ -315,7 +287,10 @@ const Confirmation = () => {
     return (
       <div className="flex flex-col min-h-screen bg-background items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Processing your booking...</p>
+        <p className="text-muted-foreground text-lg mb-2">{pollingStatus}</p>
+        <p className="text-sm text-muted-foreground/60">
+          Please wait while we confirm your booking
+        </p>
       </div>
     );
   }

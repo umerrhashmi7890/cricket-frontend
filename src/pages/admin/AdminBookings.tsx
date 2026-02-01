@@ -517,7 +517,9 @@ const AdminBookings = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-foreground text-right whitespace-nowrap">
-                        {booking.finalPrice} SAR
+                        {booking.paymentStatus === "partial"
+                          ? `${booking.amountPaid || 0} SAR`
+                          : `${booking.finalPrice} SAR`}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
@@ -853,15 +855,23 @@ const AdminBookings = () => {
                     <span
                       className={`font-semibold ${selectedBooking.discountAmount && selectedBooking.discountAmount > 0 ? "text-green-600" : ""}`}
                     >
-                      -{selectedBooking.discountAmount || 0} SAR
+                      -{(selectedBooking.discountAmount || 0).toFixed(2)} SAR
                     </span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="font-medium">Final Amount</span>
                     <span className="font-bold text-lg text-success">
-                      {selectedBooking.finalPrice} SAR
+                      {selectedBooking.finalPrice.toFixed(2)} SAR
                     </span>
                   </div>
+                  {selectedBooking.paymentStatus === "partial" && (
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="font-medium">Amount Paid</span>
+                      <span className="font-bold text-lg text-warning">
+                        {(selectedBooking.amountPaid || 0).toFixed(2)} SAR
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
