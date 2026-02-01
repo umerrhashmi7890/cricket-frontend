@@ -189,7 +189,7 @@ const Booking = () => {
 
       // 9 AM to 11 PM
       for (let hour = 9; hour < 24; hour++) {
-        const isPastHour = isToday && hour <= currentHour;
+        const isPastHour = isToday && hour < currentHour;
         if (!isPastHour) {
           const startTime = `${hour.toString().padStart(2, "0")}:00`;
           let endHour = hour + 1;
@@ -201,7 +201,9 @@ const Booking = () => {
 
       // 12 AM to 4 AM (next day)
       for (let hour = 0; hour < 4; hour++) {
-        const isPastHour = isToday && currentHour < 9;
+        // Midnight slots always represent tonight (never past for current date)
+        const isPastHour = false;
+
         if (!isPastHour) {
           const startTime = `${hour.toString().padStart(2, "0")}:00`;
           const endHour = hour + 1;
@@ -290,7 +292,7 @@ const Booking = () => {
       const price = getPriceForSlot(selectedDate, hour);
 
       // Check if this hour has passed (only for today)
-      const isPastHour = isToday && hour <= currentHour;
+      const isPastHour = isToday && hour < currentHour;
 
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:00`,
@@ -310,10 +312,10 @@ const Booking = () => {
       // These slots use the selected date's pricing
       const price = getPriceForSlot(selectedDate, hour);
 
-      // For next day slots (12 AM - 4 AM), they're only available if:
-      // - It's NOT today, OR
-      // - It's today AND current hour is >= 9 (meaning we're in the booking window)
-      const isPastHour = isToday && currentHour < 9;
+      // Midnight slots (12 AM - 4 AM) shown on a date always represent
+      // that night going into the next morning, so they're never "past"
+      // when viewing the current date (they're for tonight)
+      const isPastHour = false;
 
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:00`,
@@ -853,12 +855,19 @@ const Booking = () => {
                     <Link
                       to="/booking/details"
                       state={{
+                        courtId: selectedCourt,
                         court:
                           courts.find((c) => c.id === selectedCourt)?.name ||
                           "Court",
                         date: selectedDate,
                         slots: selectedSlots,
                         total: calculateTotal(),
+                      }}
+                      onClick={() => {
+                        console.log(
+                          "🎯 Navigating from Booking.tsx with slots:",
+                          selectedSlots,
+                        );
                       }}
                     >
                       <Button

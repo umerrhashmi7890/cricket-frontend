@@ -9,6 +9,17 @@ export interface Court {
   updatedAt: string;
 }
 
+export interface Customer {
+  _id: string;
+  id?: string;
+  name: string;
+  phone: string;
+  email?: string;
+  totalBookings?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Pricing {
   _id: string;
   days: "sun-wed" | "thu" | "fri" | "sat";
@@ -39,16 +50,56 @@ export interface BookingData {
 
 export interface Booking {
   id: string;
-  courtId: string;
-  customerId: string;
-  date: string;
+  _id?: string;
+  court: string | Court; // Can be ObjectId string or populated Court object
+  customer?: string | Customer; // Can be ObjectId string or populated Customer object
+  bookingDate: string | Date;
   startTime: string;
   endTime: string;
+  durationHours: number;
+
+  // Pricing
   totalPrice: number;
-  status: "pending" | "confirmed" | "cancelled" | "completed";
-  paymentStatus: "pending" | "paid" | "refunded";
-  createdAt: string;
-  updatedAt: string;
+  pricingBreakdown?: Array<{
+    hour: string;
+    rate: number;
+    days: string;
+    category: string;
+    timeSlot: string;
+  }>;
+  promoCode?: string;
+  discountAmount: number;
+  finalPrice: number;
+
+  // Payment
+  paymentStatus: "pending" | "partial" | "paid" | "refunded";
+  amountPaid: number;
+  paymentMethod?: string;
+  paymentReference?: string;
+  paymentId?: string; // Moyasar payment ID
+
+  // Status
+  status:
+    | "pending"
+    | "confirmed"
+    | "completed"
+    | "cancelled"
+    | "no-show"
+    | "blocked";
+
+  // Metadata
+  notes?: string;
+  createdBy: "customer" | "admin";
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+// For backward compatibility and convenience
+interface CourtRef {
+  id?: string;
+  _id?: string;
+  name: string;
+  description?: string;
 }
 
 export interface BookingCreateData {

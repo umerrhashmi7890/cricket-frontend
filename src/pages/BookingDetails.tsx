@@ -29,6 +29,49 @@ const BookingDetails = () => {
     total: 330,
   };
 
+  // Calculate start and end time from slots
+  const calculateTimeRange = () => {
+    if (!bookingData.slots || bookingData.slots.length === 0) {
+      return { startTime: "N/A", endTime: "N/A", duration: 0 };
+    }
+
+    // Sort slots to handle midnight crossing
+    const sortedSlots = [...bookingData.slots].sort((a, b) => {
+      const [aHour] = a.split(":").map(Number);
+      const [bHour] = b.split(":").map(Number);
+
+      // Map early morning (0-3) after 23:00 for sorting
+      const getOrderValue = (hour: number) => {
+        if (hour >= 0 && hour <= 3) return hour + 24;
+        return hour;
+      };
+
+      return getOrderValue(aHour) - getOrderValue(bHour);
+    });
+
+    const startTime = sortedSlots[0];
+    const lastSlot = sortedSlots[sortedSlots.length - 1];
+    const [lastHour, lastMin] = lastSlot.split(":").map(Number);
+    const endHour = (lastHour + 1) % 24;
+    const endTime = `${endHour.toString().padStart(2, "0")}:${lastMin.toString().padStart(2, "0")}`;
+
+    return {
+      startTime,
+      endTime,
+      duration: sortedSlots.length,
+    };
+  };
+
+  const { startTime, endTime, duration } = calculateTimeRange();
+
+  // Format time for display (convert 24h to 12h format)
+  const formatTime = (time: string) => {
+    const [hour, min] = time.split(":").map(Number);
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${min.toString().padStart(2, "0")} ${period}`;
+  };
+
   const { toast } = useToast();
   const [paymentOption, setPaymentOption] = useState("full");
   const [promoCode, setPromoCode] = useState("");
@@ -211,7 +254,7 @@ const BookingDetails = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">Time</p>
                       <p className="font-medium text-foreground">
-                        7:00 PM - 10:00 PM
+                        {formatTime(startTime)} - {formatTime(endTime)}
                       </p>
                     </div>
                   </div>
@@ -221,7 +264,9 @@ const BookingDetails = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Duration</p>
-                      <p className="font-medium text-foreground">3 hours</p>
+                      <p className="font-medium text-foreground">
+                        {duration} hour{duration !== 1 ? "s" : ""}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -412,24 +457,39 @@ const BookingDetails = () => {
                 </h3>
 
                 <div className="space-y-3 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      7 PM - 8 PM (Night)
-                    </span>
-                    <span className="text-foreground">110 SAR</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      8 PM - 9 PM (Night)
-                    </span>
-                    <span className="text-foreground">110 SAR</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      9 PM - 10 PM (Night)
-                    </span>
-                    <span className="text-foreground">110 SAR</span>
-                  </div>
+                  {bookingData.slots && bookingData.slots.length > 0 ? (
+                    bookingData.slots.map((slot: string, index: number) => {
+                      const hour = parseInt(slot.split(":")[0]);
+                      const nextHour = hour + 1;
+                      const timeCategory =
+                        hour >= 19 || hour < 9 ? "Night" : "Day";
+                      const pricePerSlot = Math.round(
+                        baseTotal / bookingData.slots.length,
+                      );
+
+                      return (
+                        <div
+                          key={index}
+                          className="flex justify-between text-sm"
+                        >
+                          <span className="text-muted-foreground">
+                            {hour > 12 ? hour - 12 : hour}{" "}
+                            {hour >= 12 ? "PM" : "AM"} -{" "}
+                            {nextHour > 12 ? nextHour - 12 : nextHour}{" "}
+                            {nextHour >= 12 ? "PM" : "AM"} ({timeCategory})
+                          </span>
+                          <span className="text-foreground">
+                            {pricePerSlot} SAR
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Booking</span>
+                      <span className="text-foreground">{baseTotal} SAR</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t pt-3 space-y-2">
@@ -469,10 +529,20 @@ const BookingDetails = () => {
                   to="/booking/payment"
                   state={{
                     ...bookingData,
-                    ...formData,
+                    courtId: bookingData.courtId || bookingData.court,
+                    court: bookingData.court,
+                    date: bookingData.date,
+                    slots: bookingData.slots,
+                    customerName: formData.name,
+                    customerPhone: formData.phone,
+                    customerEmail: formData.email,
+                    name: formData.name,
+                    phone: formData.phone,
+                    email: formData.email,
                     paymentOption,
                     finalTotal,
                     amountNow,
+                    promoCode: promoApplied ? promoCode : undefined,
                   }}
                   onClick={handleContinue}
                 >

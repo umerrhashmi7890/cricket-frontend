@@ -72,6 +72,41 @@ interface RevenueSummary {
   }>;
 }
 
+interface PaymentResponse {
+  id: string;
+  status: string;
+  amount: number;
+  fee: number;
+  currency: string;
+  refunded: number;
+  refunded_at: string | null;
+  captured: number;
+  captured_at: string | null;
+  voided_at: string | null;
+  description: string;
+  amount_format: string;
+  fee_format: string;
+  refunded_format: string;
+  captured_format: string;
+  invoice_id: string | null;
+  ip: string;
+  callback_url: string;
+  created_at: string;
+  updated_at: string;
+  metadata: Record<string, unknown>;
+  source: {
+    type: string;
+    company: string;
+    name: string;
+    number: string;
+    gateway_id: string;
+    reference_number: string;
+    token: string | null;
+    message: string | null;
+    transaction_url: string;
+  };
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -187,11 +222,27 @@ export const bookingApi = {
       body: JSON.stringify(params),
     }),
 
-  create: (data: BookingCreateData) =>
+  create: (data: {
+    courtId: string;
+    bookingDate: string;
+    startTime: string;
+    endTime: string;
+    customerPhone: string;
+    customerName: string;
+    customerEmail?: string;
+    notes?: string;
+    promoCode?: string;
+    paymentId?: string;
+    paymentStatus?: string;
+    amountPaid?: number;
+  }) =>
     apiCall<Booking>("/bookings", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  getByPaymentId: (paymentId: string) =>
+    apiCall<Booking>(`/bookings/by-payment/${paymentId}`),
 
   getById: (id: string) => apiCall<Booking>(`/bookings/${id}`),
 };
@@ -240,6 +291,27 @@ export const adminApi = {
 
   // Bookings
   bookings: {
+    // Public methods
+    create: (data: {
+      courtId: string;
+      bookingDate: string;
+      startTime: string;
+      endTime: string;
+      customerPhone: string;
+      customerName: string;
+      customerEmail?: string;
+      notes?: string;
+      promoCode?: string;
+      paymentId?: string;
+      paymentStatus?: string;
+      amountPaid?: number;
+    }) =>
+      apiCall<Booking>("/bookings", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    // Admin methods
     getAll: () => adminApiCall<Booking[]>("/bookings"),
     getById: (id: string) => adminApiCall<Booking>(`/bookings/${id}`),
     getCalendar: (params: { startDate: string; endDate: string }) =>
@@ -352,5 +424,43 @@ export const adminApi = {
         `/dashboard/revenue-summary${params.toString() ? `?${params.toString()}` : ""}`,
       );
     },
+  },
+
+  // Payment
+  payment: {
+    createRequest: (data: {
+      amount: number;
+      currency?: string;
+      description?: string;
+      metadata?: Record<string, unknown>;
+    }) =>
+      apiCall<{ id: string; url: string; status: string }>(
+        "/payments/create-request",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        },
+      ),
+    create: (data: {
+      amount: number;
+      currency?: string;
+      description?: string;
+      source: {
+        type: string;
+        name?: string;
+        number?: string;
+        cvc?: string;
+        month?: string;
+        year?: string;
+        token?: string;
+      };
+      metadata?: Record<string, unknown>;
+    }) =>
+      apiCall<PaymentResponse>("/payments/create", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getStatus: (paymentId: string) =>
+      apiCall<PaymentResponse>(`/payments/${paymentId}`),
   },
 };

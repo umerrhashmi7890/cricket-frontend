@@ -34,8 +34,10 @@ interface PromoCode {
   discountType: "fixed" | "percentage";
   discountValue: number;
   maxTotalUses: number;
-  usedByCustomers: string[];
+  usageCount: number; // This is what backend sends
+  remainingUses: number | null;
   isActive: boolean;
+  isExpired: boolean;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -145,11 +147,14 @@ const AdminPromos = () => {
       } else {
         throw new Error(data.message || "Failed to create promo code");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating promo code:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create promo code",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to create promo code",
         variant: "destructive",
       });
     } finally {
@@ -166,7 +171,7 @@ const AdminPromos = () => {
     const token = Cookies.get("admin_token");
 
     setPromos((prev) =>
-      prev.map((p) => (p._id === promoId ? { ...p, isActive: newStatus } : p))
+      prev.map((p) => (p._id === promoId ? { ...p, isActive: newStatus } : p)),
     );
     setLoadingStatus(promoId);
 
@@ -190,16 +195,17 @@ const AdminPromos = () => {
         title: "Success",
         description: `Promo code ${newStatus ? "activated" : "deactivated"}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       setPromos((prev) =>
         prev.map((p) =>
-          p._id === promoId ? { ...p, isActive: promo.isActive } : p
-        )
+          p._id === promoId ? { ...p, isActive: promo.isActive } : p,
+        ),
       );
 
       toast({
         title: "Error",
-        description: error.message || "Failed to update status",
+        description:
+          error instanceof Error ? error.message : "Failed to update status",
         variant: "destructive",
       });
     } finally {
@@ -221,7 +227,7 @@ const AdminPromos = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -231,17 +237,20 @@ const AdminPromos = () => {
       }
 
       setPromos((prev) =>
-        prev.filter((promo) => promo._id !== deletingPromoId)
+        prev.filter((promo) => promo._id !== deletingPromoId),
       );
 
       toast({
         title: "Promo Code Deleted",
         description: "Promo code has been deleted successfully",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete promo code",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete promo code",
         variant: "destructive",
       });
     } finally {
@@ -298,12 +307,9 @@ const AdminPromos = () => {
     return promo.isActive ? "active" : "inactive";
   };
 
-  const totalUses = promos.reduce(
-    (acc, p) => acc + (p.usedByCustomers?.length || 0),
-    0
-  );
+  const totalUses = promos.reduce((acc, p) => acc + (p.usageCount || 0), 0);
   const activePromos = promos.filter(
-    (p) => p.isActive && !isExpired(p.expiresAt)
+    (p) => p.isActive && !isExpired(p.expiresAt),
   ).length;
 
   useEffect(() => {
@@ -602,10 +608,8 @@ const AdminPromos = () => {
                       {promos.map((promo) => {
                         const status = getStatus(promo);
                         const usagePercentage = Math.min(
-                          ((promo.usedByCustomers?.length || 0) /
-                            promo.maxTotalUses) *
-                            100,
-                          100
+                          ((promo.usageCount || 0) / promo.maxTotalUses) * 100,
+                          100,
                         );
 
                         return (
@@ -645,8 +649,7 @@ const AdminPromos = () => {
                                   />
                                 </div>
                                 <span className="text-xs lg:text-sm text-muted-foreground whitespace-nowrap">
-                                  {promo.usedByCustomers?.length || 0}/
-                                  {promo.maxTotalUses}
+                                  {promo.usageCount || 0}/{promo.maxTotalUses}
                                 </span>
                               </div>
                             </td>
@@ -670,8 +673,8 @@ const AdminPromos = () => {
                                     status === "active"
                                       ? "text-success"
                                       : status === "expired"
-                                      ? "text-muted-foreground"
-                                      : "text-destructive"
+                                        ? "text-muted-foreground"
+                                        : "text-destructive"
                                   }`}
                                 >
                                   {status}

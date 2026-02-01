@@ -1,59 +1,80 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
+import { Lock, Shield, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CreditCard, Lock, Shield, Smartphone } from "lucide-react";
+import { adminApi } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const Payment = () => {
   const location = useLocation();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
   const bookingData = location.state || {
     finalTotal: 323,
     amountNow: 323,
     paymentOption: "full",
   };
 
-  const [selectedMethod, setSelectedMethod] = useState("card");
-  const [cardData, setCardData] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-    name: "",
-  });
+  const handlePayment = async () => {
+    setIsLoading(true);
 
-  const paymentMethods = [
-    { id: "mada", name: "mada", icon: "💳", description: "Debit Cards" },
-    {
-      id: "card",
-      name: "Visa / Mastercard",
-      icon: "💳",
-      description: "Credit/Debit Cards",
-    },
-    {
-      id: "apple",
-      name: "Apple Pay",
-      icon: "🍎",
-      description: "Quick & Secure",
-    },
-  ];
+    try {
+      // Validate required booking data
+      if (
+        !bookingData.courtId ||
+        !bookingData.date ||
+        !bookingData.slots ||
+        !bookingData.slots.length
+      ) {
+        throw new Error("Booking information is incomplete");
+      }
 
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || "";
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
+      if (!bookingData.customerName || !bookingData.customerPhone) {
+        throw new Error("Customer information is required");
+      }
+
+      // Create payment request and get Moyasar checkout URL
+      const response = await adminApi.payment.createRequest({
+        amount: bookingData.amountNow,
+        currency: "SAR",
+        description: `Court Booking - ${bookingData.court || "Cricket Court"}`,
+        metadata: {
+          // Store complete booking data in metadata for confirmation page
+          courtId: bookingData.courtId,
+          court: bookingData.court,
+          date: bookingData.date,
+          slots: JSON.stringify(bookingData.slots),
+          customerName: bookingData.customerName,
+          customerPhone: bookingData.customerPhone,
+          customerEmail: bookingData.customerEmail || "",
+          paymentOption: bookingData.paymentOption,
+          finalTotal: bookingData.finalTotal,
+          amountNow: bookingData.amountNow,
+          promoCode: bookingData.promoCode || "",
+        },
+      });
+
+      if (response.success && response.data?.url) {
+        // Store booking data in sessionStorage as backup
+        sessionStorage.setItem("pendingBooking", JSON.stringify(bookingData));
+
+        // Redirect to Moyasar's hosted payment page
+        window.location.href = response.data.url;
+      } else {
+        throw new Error("Failed to get payment URL");
+      }
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Payment error:", err);
+      toast({
+        title: "Payment Error",
+        description:
+          err.message || "Failed to initiate payment. Please try again.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
     }
-    return parts.length ? parts.join(" ") : value;
-  };
-
-  const formatExpiry = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    if (v.length >= 2) {
-      return v.substring(0, 2) + "/" + v.substring(2, 4);
-    }
-    return v;
   };
 
   return (
@@ -72,139 +93,71 @@ const Payment = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          {/* Back Button */}
+          <Link to="/booking/details" state={bookingData}>
+            <Button variant="ghost" className="mb-6" disabled={isLoading}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Details
+            </Button>
+          </Link>
+
           {/* Amount to Pay */}
           <div className="bg-card rounded-xl border p-6 mb-6 text-center">
             <p className="text-muted-foreground mb-2">Amount to Pay</p>
             <p className="text-4xl font-bold text-primary">
-              {bookingData.amountNow?.toFixed(0) || 323} SAR
+              {bookingData.amountNow?.toFixed(2) || "323.00"} SAR
             </p>
             {bookingData.paymentOption === "partial" && (
               <p className="text-sm text-muted-foreground mt-2">
                 Remaining{" "}
-                {(bookingData.finalTotal - bookingData.amountNow).toFixed(0)}{" "}
+                {(bookingData.finalTotal - bookingData.amountNow).toFixed(2)}{" "}
                 SAR to be paid at venue
               </p>
             )}
           </div>
 
-          {/* Payment Methods */}
+          {/* Payment Info */}
           <div className="bg-card rounded-xl border p-6 mb-6">
             <h2 className="font-semibold text-foreground mb-4">
               Payment Method
             </h2>
-            <div className="grid grid-cols-3 gap-3">
-              {paymentMethods.map((method) => (
-                <button
-                  key={method.id}
-                  onClick={() => setSelectedMethod(method.id)}
-                  className={`p-4 rounded-xl border text-center transition-all ${
-                    selectedMethod === method.id
-                      ? "border-primary bg-primary/5 shadow-md"
-                      : "hover:bg-muted/50"
-                  }`}
-                >
-                  <span className="text-2xl mb-2 block">{method.icon}</span>
-                  <p className="font-medium text-foreground text-sm">
-                    {method.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {method.description}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
+            <p className="text-muted-foreground text-sm mb-6">
+              You will be redirected to Moyasar's secure payment page to
+              complete your payment. Accepted payment methods:
+            </p>
 
-          {/* Card Details Form */}
-          {(selectedMethod === "card" || selectedMethod === "mada") && (
-            <div className="bg-card rounded-xl border p-6 mb-6">
-              <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Card Details
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="cardNumber">Card Number</Label>
-                  <Input
-                    id="cardNumber"
-                    placeholder="1234 5678 9012 3456"
-                    value={cardData.number}
-                    onChange={(e) =>
-                      setCardData({
-                        ...cardData,
-                        number: formatCardNumber(e.target.value),
-                      })
-                    }
-                    maxLength={19}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cardName">Cardholder Name</Label>
-                  <Input
-                    id="cardName"
-                    placeholder="JOHN DOE"
-                    value={cardData.name}
-                    onChange={(e) =>
-                      setCardData({
-                        ...cardData,
-                        name: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="expiry">Expiry Date</Label>
-                    <Input
-                      id="expiry"
-                      placeholder="MM/YY"
-                      value={cardData.expiry}
-                      onChange={(e) =>
-                        setCardData({
-                          ...cardData,
-                          expiry: formatExpiry(e.target.value),
-                        })
-                      }
-                      maxLength={5}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cvv">CVV</Label>
-                    <Input
-                      id="cvv"
-                      placeholder="123"
-                      type="password"
-                      value={cardData.cvv}
-                      onChange={(e) =>
-                        setCardData({
-                          ...cardData,
-                          cvv: e.target.value.replace(/\D/g, "").slice(0, 4),
-                        })
-                      }
-                      maxLength={4}
-                    />
-                  </div>
-                </div>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="p-4 rounded-lg border text-center">
+                <span className="text-2xl mb-2 block">💳</span>
+                <p className="text-xs font-medium">mada</p>
+              </div>
+              <div className="p-4 rounded-lg border text-center">
+                <span className="text-2xl mb-2 block">💳</span>
+                <p className="text-xs font-medium">Visa</p>
+              </div>
+              <div className="p-4 rounded-lg border text-center">
+                <span className="text-2xl mb-2 block">💳</span>
+                <p className="text-xs font-medium">Mastercard</p>
               </div>
             </div>
-          )}
 
-          {/* Apple Pay */}
-          {selectedMethod === "apple" && (
-            <div className="bg-card rounded-xl border p-6 mb-6 text-center">
-              <Smartphone className="w-12 h-12 text-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">
-                Click the button below to pay with Apple Pay
-              </p>
-              <Button
-                variant="default"
-                size="lg"
-                className="bg-foreground text-background hover:bg-foreground/90"
-              >
-                Pay with Apple Pay
-              </Button>
-            </div>
-          )}
+            <Button
+              onClick={handlePayment}
+              disabled={isLoading}
+              variant="hero"
+              size="lg"
+              className="w-full text-background"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Redirecting to Payment...
+                </>
+              ) : (
+                <>Continue to Payment</>
+              )}
+            </Button>
+          </div>
 
           {/* Security Badges */}
           <div className="flex items-center justify-center gap-6 mb-6">
@@ -218,16 +171,9 @@ const Payment = () => {
             </div>
           </div>
 
-          {/* Pay Button */}
-          <Link to="/booking/confirmation">
-            <Button variant="hero" size="xl" className="w-full text-background">
-              Pay {bookingData.amountNow?.toFixed(0) || 323} SAR
-            </Button>
-          </Link>
-
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            Your payment is processed securely. We do not store your card
-            details.
+          <p className="text-xs text-muted-foreground text-center">
+            Your payment is processed securely by Moyasar. We do not store your
+            card details.
           </p>
         </div>
       </div>
