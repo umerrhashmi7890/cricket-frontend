@@ -90,10 +90,20 @@ const BookingDetails = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const baseTotal = bookingData.total || 330;
-  const discount = paymentOption === "full" ? baseTotal * 0.02 : 0;
+  const discount =
+    paymentOption === "full" ? Math.round(baseTotal * 0.02 * 100) / 100 : 0;
   const promoDiscount = promoApplied && promoData ? promoData.discount : 0;
-  const finalTotal = baseTotal - discount - promoDiscount;
-  const amountNow = paymentOption === "full" ? finalTotal : finalTotal * 0.5;
+
+  // Use backend's finalAmount if promo applied, otherwise calculate manually
+  const finalTotal =
+    promoApplied && promoData?.finalAmount !== undefined
+      ? Math.max(0, Math.round(promoData.finalAmount * 100) / 100)
+      : Math.round((baseTotal - discount) * 100) / 100;
+
+  const amountNow =
+    paymentOption === "full"
+      ? finalTotal
+      : Math.max(0, Math.round(finalTotal * 0.5 * 100) / 100);
 
   // Check if phone is valid (Saudi format)
   const isPhoneValid =

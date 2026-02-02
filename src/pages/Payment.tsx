@@ -34,6 +34,49 @@ const Payment = () => {
         throw new Error("Customer information is required");
       }
 
+      // Handle free booking (100% discount) or amount too small for gateway
+      if (
+        bookingData.amountNow <= 0 ||
+        bookingData.finalTotal <= 0 ||
+        bookingData.amountNow < 1
+      ) {
+        // Sort slots and calculate start/end time
+        const sortedSlots = [...bookingData.slots].sort((a, b) => {
+          const [aHour] = a.split(":").map(Number);
+          const [bHour] = b.split(":").map(Number);
+          const getOrder = (h: number) => (h >= 0 && h <= 3 ? h + 24 : h);
+          return getOrder(aHour) - getOrder(bHour);
+        });
+
+        const startTime = sortedSlots[0];
+        const lastSlot = sortedSlots[sortedSlots.length - 1];
+        const [lastHour, lastMin] = lastSlot.split(":").map(Number);
+        const endHour = (lastHour + 1) % 24;
+        const endTime = `${endHour.toString().padStart(2, "0")}:${lastMin.toString().padStart(2, "0")}`;
+
+        // Create booking directly without payment
+        const bookingResponse = await adminApi.bookings.create({
+          courtId: bookingData.courtId,
+          bookingDate: bookingData.date,
+          startTime,
+          endTime,
+          customerPhone: bookingData.customerPhone,
+          customerName: bookingData.customerName,
+          customerEmail: bookingData.customerEmail || undefined,
+          promoCode: bookingData.promoCode || undefined,
+          paymentStatus: "paid", // Mark as paid since amount is 0
+          amountPaid: 0,
+        });
+
+        if (bookingResponse.success) {
+          // Redirect to confirmation with booking ID
+          window.location.href = `/booking/confirmation?bookingId=${bookingResponse.data._id}`;
+        } else {
+          throw new Error("Failed to create booking");
+        }
+        return;
+      }
+
       // Create payment request and get Moyasar checkout URL
       const response = await adminApi.payment.createRequest({
         amount: bookingData.amountNow,

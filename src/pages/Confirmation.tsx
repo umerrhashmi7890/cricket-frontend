@@ -43,9 +43,10 @@ const Confirmation = () => {
   useEffect(() => {
     const createBookingAfterPayment = async () => {
       try {
-        // Get payment ID from URL query params (Moyasar redirects with ?id=payment_id)
+        // Get payment ID or booking ID from URL query params
         const params = new URLSearchParams(location.search);
         const paymentId = params.get("id");
+        const bookingId = params.get("bookingId");
         const message = params.get("message");
 
         // Get booking data from location state or sessionStorage (fallback)
@@ -55,6 +56,54 @@ const Confirmation = () => {
           if (stored) {
             bookingData = JSON.parse(stored);
             sessionStorage.removeItem("pendingBooking"); // Clean up
+          }
+        }
+
+        // Handle direct booking (free/100% discount - no payment gateway)
+        if (bookingId && !paymentId) {
+          try {
+            const bookingResponse = await bookingApi.getById(bookingId);
+
+            if (bookingResponse.success && bookingResponse.data) {
+              const booking = bookingResponse.data;
+
+              // Get court name from populated court field
+              const courtName =
+                typeof booking.court === "string"
+                  ? "Court"
+                  : booking.court?.name || "Court";
+
+              // Get customer data from populated customer field
+              const customerData =
+                typeof booking.customer === "object" && booking.customer
+                  ? booking.customer
+                  : { name: "Guest", phone: "", email: "" };
+
+              setBookingDetails({
+                bookingId: booking._id || booking.id || bookingId,
+                court: courtName,
+                date: format(
+                  new Date(booking.bookingDate),
+                  "EEEE, MMMM d, yyyy",
+                ),
+                time: `${booking.startTime} - ${booking.endTime}`,
+                slots: [],
+                duration: `${booking.durationHours || 0}h`,
+                totalPaid: `${booking.amountPaid || 0} SAR`,
+                paymentMethod: "Promo Code (100% Discount)",
+                customerName: customerData.name || "Guest",
+                customerPhone: customerData.phone || "",
+                customerEmail: customerData.email || "",
+              });
+
+              setLoading(false);
+              return;
+            }
+          } catch (err) {
+            console.error("Error fetching booking:", err);
+            setError("Booking not found");
+            setLoading(false);
+            return;
           }
         }
 
