@@ -730,31 +730,33 @@ const Booking = () => {
                     {timeSlots.map((slot, index) => {
                       const isBooked = bookedSlots.has(slot.time);
                       const isSelected = selectedSlots.includes(slot.time);
-                      const isPastOrBooked = !slot.available || isBooked;
+                      const isPast = !slot.available;
                       const isAvailable = slot.available && !isBooked;
 
                       return (
                         <button
                           key={index}
                           onClick={() => isAvailable && toggleSlot(slot.time)}
-                          disabled={isPastOrBooked}
+                          disabled={isPast || isBooked}
                           className={`p-3 rounded-lg text-sm font-medium transition-all border ${
-                            isPastOrBooked
+                            isPast
                               ? "bg-destructive/10 border-destructive/30 text-destructive cursor-not-allowed opacity-60"
-                              : isSelected
-                                ? "bg-primary border-primary text-primary-foreground shadow-md"
-                                : isAvailable
-                                  ? slot.category === "night"
-                                    ? "bg-primary/10 border-primary/30 hover:bg-primary/20 text-foreground"
-                                    : "bg-secondary/10 border-secondary/30 hover:bg-secondary/20 text-foreground"
-                                  : "bg-muted border-muted text-muted-foreground cursor-not-allowed"
+                              : isBooked
+                                ? "bg-orange-500 border-orange-500/30 text-black dark:text-orange-400 cursor-not-allowed opacity-70"
+                                : isSelected
+                                  ? "bg-primary border-primary text-primary-foreground shadow-md"
+                                  : isAvailable
+                                    ? slot.category === "night"
+                                      ? "bg-primary/10 border-primary/30 hover:bg-primary/20 text-foreground"
+                                      : "bg-secondary/10 border-secondary/30 hover:bg-secondary/20 text-foreground"
+                                    : "bg-muted border-muted text-muted-foreground cursor-not-allowed"
                           }`}
                         >
                           <div>{slot.display}</div>
-                          {isPastOrBooked ? (
-                            <div className="text-xs mt-1">
-                              {!slot.available ? "Past" : "Booked"}
-                            </div>
+                          {isPast ? (
+                            <div className="text-xs mt-1">Past</div>
+                          ) : isBooked ? (
+                            <div className="text-xs mt-1">Booked</div>
                           ) : isAvailable ? (
                             <div className="text-xs mt-1 opacity-70">
                               {slot.price} SAR

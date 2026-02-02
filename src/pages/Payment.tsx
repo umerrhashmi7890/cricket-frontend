@@ -146,78 +146,117 @@ const Payment = () => {
 
           {/* Amount to Pay */}
           <div className="bg-card rounded-xl border p-6 mb-6 text-center">
-            <p className="text-muted-foreground mb-2">Amount to Pay</p>
+            <p className="text-muted-foreground mb-2">
+              {bookingData.amountNow <= 0 ? "Total Amount" : "Amount to Pay"}
+            </p>
             <p className="text-4xl font-bold text-primary">
               {bookingData.amountNow?.toFixed(2) || "323.00"} SAR
             </p>
-            {bookingData.paymentOption === "partial" && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Remaining{" "}
-                {(bookingData.finalTotal - bookingData.amountNow).toFixed(2)}{" "}
-                SAR to be paid at venue
+            {bookingData.paymentOption === "partial" &&
+              bookingData.amountNow > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Remaining{" "}
+                  {(bookingData.finalTotal - bookingData.amountNow).toFixed(2)}{" "}
+                  SAR to be paid at venue
+                </p>
+              )}
+            {bookingData.amountNow <= 0 && (
+              <p className="text-sm text-success mt-2">
+                🎉 100% Discount Applied - No Payment Required
               </p>
             )}
           </div>
 
-          {/* Payment Info */}
-          <div className="bg-card rounded-xl border p-6 mb-6">
-            <h2 className="font-semibold text-foreground mb-4">
-              Payment Method
-            </h2>
-            <p className="text-muted-foreground text-sm mb-6">
-              You will be redirected to Moyasar's secure payment page to
-              complete your payment. Accepted payment methods:
-            </p>
+          {/* Payment Info - Only show if amount > 0 */}
+          {bookingData.amountNow > 0 ? (
+            <>
+              <div className="bg-card rounded-xl border p-6 mb-6">
+                <h2 className="font-semibold text-foreground mb-4">
+                  Payment Method
+                </h2>
+                <p className="text-muted-foreground text-sm mb-6">
+                  You will be redirected to Moyasar's secure payment page to
+                  complete your payment. Accepted payment methods:
+                </p>
 
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="p-4 rounded-lg border text-center">
-                <span className="text-2xl mb-2 block">💳</span>
-                <p className="text-xs font-medium">mada</p>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="p-4 rounded-lg border text-center">
+                    <span className="text-2xl mb-2 block">💳</span>
+                    <p className="text-xs font-medium">mada</p>
+                  </div>
+                  <div className="p-4 rounded-lg border text-center">
+                    <span className="text-2xl mb-2 block">💳</span>
+                    <p className="text-xs font-medium">Visa</p>
+                  </div>
+                  <div className="p-4 rounded-lg border text-center">
+                    <span className="text-2xl mb-2 block">💳</span>
+                    <p className="text-xs font-medium">Mastercard</p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handlePayment}
+                  disabled={isLoading}
+                  variant="hero"
+                  size="lg"
+                  className="w-full text-background"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Redirecting to Payment...
+                    </>
+                  ) : (
+                    <>Continue to Payment</>
+                  )}
+                </Button>
               </div>
-              <div className="p-4 rounded-lg border text-center">
-                <span className="text-2xl mb-2 block">💳</span>
-                <p className="text-xs font-medium">Visa</p>
+
+              {/* Security Badges */}
+              <div className="flex items-center justify-center gap-6 mb-6">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Lock className="w-4 h-4" />
+                  <span className="text-sm">SSL Secured</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Shield className="w-4 h-4" />
+                  <span className="text-sm">PCI Compliant</span>
+                </div>
               </div>
-              <div className="p-4 rounded-lg border text-center">
-                <span className="text-2xl mb-2 block">💳</span>
-                <p className="text-xs font-medium">Mastercard</p>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Your payment is processed securely by Moyasar. We do not store
+                your card details.
+              </p>
+            </>
+          ) : (
+            <>
+              {/* Free Booking - No Payment Required */}
+              <div className="bg-card rounded-xl border p-6 mb-6">
+                <Button
+                  onClick={handlePayment}
+                  disabled={isLoading}
+                  variant="hero"
+                  size="lg"
+                  className="w-full text-background"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Confirming Booking...
+                    </>
+                  ) : (
+                    <>Confirm Booking</>
+                  )}
+                </Button>
               </div>
-            </div>
 
-            <Button
-              onClick={handlePayment}
-              disabled={isLoading}
-              variant="hero"
-              size="lg"
-              className="w-full text-background"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Redirecting to Payment...
-                </>
-              ) : (
-                <>Continue to Payment</>
-              )}
-            </Button>
-          </div>
-
-          {/* Security Badges */}
-          <div className="flex items-center justify-center gap-6 mb-6">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Lock className="w-4 h-4" />
-              <span className="text-sm">SSL Secured</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Shield className="w-4 h-4" />
-              <span className="text-sm">PCI Compliant</span>
-            </div>
-          </div>
-
-          <p className="text-xs text-muted-foreground text-center">
-            Your payment is processed securely by Moyasar. We do not store your
-            card details.
-          </p>
+              <p className="text-sm text-muted-foreground text-center">
+                Your booking will be confirmed instantly. A confirmation email
+                will be sent to you.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
