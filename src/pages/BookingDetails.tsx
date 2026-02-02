@@ -311,9 +311,21 @@ const BookingDetails = () => {
                       id="phone"
                       placeholder="+966 5X XXX XXXX"
                       value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, phone: e.target.value });
+                        // Remove promo code if phone number changes
+                        if (promoApplied) {
+                          setPromoApplied(false);
+                          setPromoData(null);
+                          setPromoCode("");
+                          toast({
+                            title: "Promo Code Removed",
+                            description:
+                              "Promo code was removed because phone number changed",
+                            variant: "default",
+                          });
+                        }
+                      }}
                       className={errors.phone ? "border-destructive" : ""}
                     />
                     {errors.phone && (
