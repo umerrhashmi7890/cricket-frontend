@@ -28,6 +28,7 @@ const BookingDetails = () => {
     slots: ["19:00", "20:00", "21:00"],
     total: 330,
   };
+  console.log("Booking Data:", bookingData);
 
   // Calculate start and end time from slots
   const calculateTimeRange = () => {
