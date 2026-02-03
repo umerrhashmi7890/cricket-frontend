@@ -147,10 +147,13 @@ const Payment = () => {
           {/* Amount to Pay */}
           <div className="bg-card rounded-xl border p-6 mb-6 text-center">
             <p className="text-muted-foreground mb-2">
-              {bookingData.amountNow <= 0 ? "Total Amount" : "Amount to Pay"}
+              {bookingData.amountNow < 1 ? "Total Amount" : "Amount to Pay"}
             </p>
             <p className="text-4xl font-bold text-primary">
-              {bookingData.amountNow?.toFixed(2) || "323.00"} SAR
+              {bookingData.amountNow < 1
+                ? "0"
+                : bookingData.amountNow?.toFixed(2) || "323.00"}{" "}
+              SAR
             </p>
             {bookingData.paymentOption === "partial" &&
               bookingData.amountNow > 0 && (
@@ -160,15 +163,15 @@ const Payment = () => {
                   SAR to be paid at venue
                 </p>
               )}
-            {bookingData.amountNow <= 0 && (
+            {bookingData.amountNow < 1 && (
               <p className="text-sm text-success mt-2">
                 🎉 100% Discount Applied - No Payment Required
               </p>
             )}
           </div>
 
-          {/* Payment Info - Only show if amount > 0 */}
-          {bookingData.amountNow > 0 ? (
+          {/* Payment Info - Only show if amount >= 1 SAR */}
+          {bookingData.amountNow >= 1 ? (
             <>
               <div className="bg-card rounded-xl border p-6 mb-6">
                 <h2 className="font-semibold text-foreground mb-4">
