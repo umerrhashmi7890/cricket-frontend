@@ -6,9 +6,9 @@ import {
   MapPin,
   Facebook,
   Instagram,
-  Twitter,
+  Music,
 } from "lucide-react";
-import { CONTACT_DETAILS } from "@/constants/contactInfo";
+import { CONTACT_DETAILS, SOCIAL_LINKS } from "@/constants/contactInfo";
 
 const Footer = () => {
   return (
@@ -33,22 +33,28 @@ const Footer = () => {
             </p>
             <div className="flex gap-3">
               <a
-                href="#"
+                href={SOCIAL_LINKS.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg bg-muted/20 flex items-center justify-center hover:bg-muted/30 transition-colors"
               >
                 <Facebook className="w-4 h-4" />
               </a>
               <a
-                href="#"
+                href={SOCIAL_LINKS.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg bg-muted/20 flex items-center justify-center hover:bg-muted/30 transition-colors"
               >
                 <Instagram className="w-4 h-4" />
               </a>
               <a
-                href="#"
+                href={SOCIAL_LINKS.tiktok}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg bg-muted/20 flex items-center justify-center hover:bg-muted/30 transition-colors"
               >
-                <Twitter className="w-4 h-4" />
+                <Music className="w-4 h-4" />
               </a>
             </div>
           </div>

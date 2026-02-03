@@ -591,11 +591,11 @@ const Booking = () => {
                                 : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <span>{court.name}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex-1 min-w-0">{court.name}</span>
                             {availableSlots !== null && (
                               <span
-                                className={`text-xs px-2 py-0.5 rounded-full ${
+                                className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
                                   isFullyBooked
                                     ? "bg-destructive/20 text-destructive"
                                     : availableSlots < 5

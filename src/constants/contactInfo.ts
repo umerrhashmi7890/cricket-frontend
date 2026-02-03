@@ -1,8 +1,15 @@
 export const CONTACT_DETAILS = {
-  address: "H8F3+X9Q Ash Shorooq, Jeddah Saudi Arabia",
+  address: "Wadi Marik, Jeddah Saudi Arabia",
   phones: ["+966 56 681 9266", "+966 56 451 7456"],
   email: "contact@jeddahcricketnets.com",
   hours: "9:00 AM - 4:00 AM (Next Day), Daily",
+};
+
+export const SOCIAL_LINKS = {
+  instagram:
+    "https://www.instagram.com/jeddahcricketnets?igsh=MWozaGlub2ozZW5jcA==",
+  facebook: "https://www.facebook.com/share/17cSgEaScN/?mibextid=wwXIfr",
+  tiktok: "https://www.tiktok.com/@jeddah.cricket.ne?_r=1&_t=ZS-93L43FISsKn",
 };
 
 export const MAP_EMBED_URL =

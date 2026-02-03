@@ -53,7 +53,7 @@ const Header = () => {
 
           {/* Admin Link & Mobile Menu */}
           <div className="flex items-center gap-3">
-            <Link to="/admin/login" className="hidden sm:block">
+            <Link to="/admin/login" className="invisible">
               <Button variant="outline" size="sm">
                 Admin Login
               </Button>
