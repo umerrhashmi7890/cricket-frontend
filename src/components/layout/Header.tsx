@@ -53,11 +53,11 @@ const Header = () => {
 
           {/* Admin Link & Mobile Menu */}
           <div className="flex items-center gap-3">
-            <Link to="/admin/login" className="invisible">
+            {/* <Link to="/admin/login" className="invisible">
               <Button variant="outline" size="sm">
                 Admin Login
               </Button>
-            </Link>
+            </Link> */}
 
             <button
               className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
@@ -90,11 +90,11 @@ const Header = () => {
                   {link.label}
                 </Link>
               ))}
-              <Link to="/admin/login" onClick={() => setMobileMenuOpen(false)}>
+              {/* <Link to="/admin/login" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="outline" className="w-full mt-2">
                   Admin Login
                 </Button>
-              </Link>
+              </Link> */}
             </nav>
           </div>
         )}
