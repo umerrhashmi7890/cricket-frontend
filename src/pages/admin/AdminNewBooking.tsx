@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,9 @@ import { Court, Pricing, TimeSlot } from "@/types/booking.types";
 const AdminNewBooking = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const customerInfoRef = useRef<HTMLDivElement>(null);
+  const courtSelectionRef = useRef<HTMLDivElement>(null);
+  const timeSlotsRef = useRef<HTMLDivElement>(null);
 
   // State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -47,6 +50,9 @@ const AdminNewBooking = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [courtAvailability, setCourtAvailability] = useState<
+    Record<string, number>
+  >({});
 
   // Fetch courts on mount
   useEffect(() => {
@@ -99,6 +105,86 @@ const AdminNewBooking = () => {
     fetchPricing();
   }, [toast]);
 
+  // Fetch availability for all courts using batch endpoint
+  const fetchAllCourtsAvailability = async () => {
+    if (!selectedDate || courts.length === 0) {
+      return;
+    }
+
+    try {
+      const formattedDate = format(selectedDate, "yyyy-MM-dd");
+
+      // Check if selected date is today
+      const today = new Date();
+      const isToday =
+        selectedDate.getDate() === today.getDate() &&
+        selectedDate.getMonth() === today.getMonth() &&
+        selectedDate.getFullYear() === today.getFullYear();
+
+      const currentHour = today.getHours();
+
+      // Build time slots array
+      const timeSlots: Array<{ startTime: string; endTime: string }> = [];
+
+      // 9 AM to 11 PM
+      for (let hour = 9; hour < 24; hour++) {
+        const isPastHour = isToday && hour <= currentHour;
+        if (!isPastHour) {
+          const startTime = `${hour.toString().padStart(2, "0")}:00`;
+          let endHour = hour + 1;
+          if (endHour >= 24) endHour = endHour - 24;
+          const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+          timeSlots.push({ startTime, endTime });
+        }
+      }
+
+      // 12 AM to 4 AM (next day)
+      for (let hour = 0; hour < 4; hour++) {
+        const isPastHour = false;
+        if (!isPastHour) {
+          const startTime = `${hour.toString().padStart(2, "0")}:00`;
+          const endHour = hour + 1;
+          const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+          timeSlots.push({ startTime, endTime });
+        }
+      }
+
+      // Single batch API call for all courts
+      const courtIds = courts.map((court) => court.id);
+      const response = await bookingApi.checkBatchAvailability({
+        bookingDate: formattedDate,
+        timeSlots,
+        courtIds,
+      });
+
+      // Calculate available slot count for each court
+      const availability: Record<string, number> = {};
+
+      if (response.data) {
+        Object.entries(response.data).forEach(([courtId, slots]) => {
+          let availableCount = 0;
+          Object.values(slots).forEach((slot) => {
+            if (slot.available) {
+              availableCount++;
+            }
+          });
+          availability[courtId] = availableCount;
+        });
+      }
+
+      setCourtAvailability(availability);
+    } catch (error) {
+      console.error("Failed to fetch court availability:", error);
+    }
+  };
+
+  // Fetch availability for all courts when date or courts change
+  useEffect(() => {
+    if (courts.length > 0 && selectedDate) {
+      fetchAllCourtsAvailability();
+    }
+  }, [courts, selectedDate]);
+
   // Generate time slots when court, date, or pricing changes
   useEffect(() => {
     if (selectedCourt && pricing.length > 0) {
@@ -122,57 +208,54 @@ const AdminNewBooking = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCourt]);
 
-  // Fetch booked slots for selected court and date
+  // Fetch booked slots for selected court and date using batch endpoint
   const fetchBookedSlots = async () => {
-    if (!selectedCourt || !selectedDate) return;
+    // Don't fetch if court hasn't been selected yet or is empty
+    if (!selectedCourt || selectedCourt === "" || !selectedDate) {
+      return;
+    }
 
     try {
       setLoadingSlots(true);
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
 
-      // Get all time slots to check
-      const slotsToCheck: string[] = [];
+      // Build time slots array
+      const timeSlots: Array<{ startTime: string; endTime: string }> = [];
 
       // 9 AM to 11 PM
       for (let hour = 9; hour < 24; hour++) {
-        slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+        const startTime = `${hour.toString().padStart(2, "0")}:00`;
+        let endHour = hour + 1;
+        if (endHour >= 24) endHour = endHour - 24;
+        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+        timeSlots.push({ startTime, endTime });
       }
 
       // 12 AM to 4 AM (next day)
       for (let hour = 0; hour < 4; hour++) {
-        slotsToCheck.push(`${hour.toString().padStart(2, "0")}:00`);
+        const startTime = `${hour.toString().padStart(2, "0")}:00`;
+        const endHour = hour + 1;
+        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+        timeSlots.push({ startTime, endTime });
       }
 
-      // Check each slot for conflicts
+      // Single batch API call instead of 19+ individual calls
+      const response = await bookingApi.checkBatchAvailability({
+        bookingDate: formattedDate,
+        timeSlots,
+        courtIds: [selectedCourt],
+      });
+
+      // Extract booked slots from batch response
       const booked = new Set<string>();
+      const courtData = response.data?.[selectedCourt];
 
-      for (const slot of slotsToCheck) {
-        const [hour] = slot.split(":").map(Number);
-        let endHour = hour + 1;
-
-        // Handle midnight boundary (24:00 -> 00:00)
-        if (endHour >= 24) {
-          endHour = endHour - 24;
-        }
-
-        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
-
-        try {
-          const response = await bookingApi.checkAvailability({
-            courtId: selectedCourt,
-            bookingDate: formattedDate,
-            startTime: slot,
-            endTime,
-          });
-
-          console.log("Availability response:", response);
-
-          if (!response.data?.available) {
-            booked.add(slot);
+      if (courtData) {
+        Object.entries(courtData).forEach(([timeSlotKey, slotData]) => {
+          if (!slotData.available) {
+            booked.add(slotData.startTime);
           }
-        } catch (error) {
-          console.error(`Failed to check availability for ${slot}:`, error);
-        }
+        });
       }
 
       setBookedSlots(booked);
@@ -382,54 +465,62 @@ const AdminNewBooking = () => {
   };
 
   const validateForm = (): boolean => {
-    // Check if court is selected
+    // Step 1: Check if court is selected
     if (!selectedCourt) {
       toast({
-        title: "Validation Error",
-        description: "Please select a court",
+        title: "Select a Court",
+        description: "Please select a court to continue",
         variant: "destructive",
+      });
+      // Scroll to court selection
+      courtSelectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
       });
       return false;
     }
 
-    // Check if slots are selected
+    // Step 2: Check if slots are selected
     if (selectedSlots.length === 0) {
       toast({
-        title: "Validation Error",
+        title: "Select Time Slots",
         description: "Please select at least one time slot",
         variant: "destructive",
       });
+      // Scroll to time slots section
+      timeSlotsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return false;
     }
 
-    // If not blocked, customer info is required
+    // Step 3: If not blocked, customer info is required
     if (!isBlocked) {
       if (!customerName.trim()) {
         toast({
-          title: "Validation Error",
-          description: "Customer name is required",
+          title: "Customer Name Required",
+          description: "Please enter the customer's name",
           variant: "destructive",
+        });
+        // Scroll to customer info section
+        customerInfoRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
         });
         return false;
       }
 
       if (!customerPhone.trim()) {
         toast({
-          title: "Validation Error",
-          description: "Customer phone is required",
+          title: "Customer Phone Required",
+          description: "Please enter the customer's phone number",
           variant: "destructive",
         });
-        return false;
-      }
-
-      // Validate Saudi phone format (mobile or landline)
-      const phoneRegex = /^(05\d{8}|(\+966)(5|1[1-9])\d{7,8})$/;
-      if (!phoneRegex.test(customerPhone.trim())) {
-        toast({
-          title: "Validation Error",
-          description:
-            "Please enter a valid Saudi phone number (05XXXXXXXX or +9661XXXXXXXX)",
-          variant: "destructive",
+        // Scroll to customer info section
+        customerInfoRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
         });
         return false;
       }
@@ -443,6 +534,49 @@ const AdminNewBooking = () => {
 
     try {
       setSubmitting(true);
+
+      // Format date once for reuse
+      const formattedDate = format(selectedDate, "yyyy-MM-dd");
+
+      // RE-VALIDATE AVAILABILITY - Critical race condition prevention
+      // This catches if client or another admin booked the same slots
+      const timeSlots = selectedSlots.map((slot) => {
+        const [hour, minute] = slot.split(":").map(Number);
+        const endHour = (hour + 1) % 24;
+        return {
+          startTime: slot,
+          endTime: `${endHour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`,
+        };
+      });
+
+      const availabilityCheck = await bookingApi.checkBatchAvailability({
+        bookingDate: formattedDate,
+        timeSlots,
+        courtIds: [selectedCourt],
+      });
+
+      // Check if any of the selected slots are now unavailable
+      const courtData = availabilityCheck.data?.[selectedCourt];
+      if (courtData) {
+        const unavailableSlots: string[] = [];
+        Object.entries(courtData).forEach(([key, slotData]) => {
+          if (!slotData.available) {
+            unavailableSlots.push(slotData.startTime);
+          }
+        });
+
+        if (unavailableSlots.length > 0) {
+          toast({
+            title: "Slots No Longer Available",
+            description: `The following time slots were just booked: ${unavailableSlots.join(", ")}. Please refresh and select different slots.`,
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          // Refresh the booked slots
+          await fetchBookedSlots();
+          return;
+        }
+      }
 
       // Sort slots properly, accounting for overnight bookings
       // Separate day slots (9-23) and night slots (0-4)
@@ -490,9 +624,6 @@ const AdminNewBooking = () => {
           .toString()
           .padStart(2, "0")}:${endMinute.toString().padStart(2, "0")}`;
       }
-
-      // Format date as YYYY-MM-DD
-      const formattedDate = format(selectedDate, "yyyy-MM-dd");
 
       // Prepare booking data
       const bookingData = {
@@ -563,7 +694,10 @@ const AdminNewBooking = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Customer Selection */}
           {!isBlocked && (
-            <div className="bg-card rounded-xl border p-6">
+            <div
+              ref={customerInfoRef}
+              className="bg-card rounded-xl border p-6"
+            >
               <h2 className="font-semibold text-foreground mb-4">
                 Customer Information
               </h2>
@@ -591,7 +725,7 @@ const AdminNewBooking = () => {
                   <Label htmlFor="email">Email Address</Label>
                   <Input
                     id="email"
-                    type="email"
+                    type="text"
                     placeholder="customer@email.com"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
@@ -626,7 +760,7 @@ const AdminNewBooking = () => {
                   }}
                 />
               </div>
-              <div>
+              <div ref={courtSelectionRef}>
                 <Label>Select Court</Label>
                 {loadingCourts ? (
                   <div className="flex justify-center py-4">
@@ -641,11 +775,38 @@ const AdminNewBooking = () => {
                       <SelectValue placeholder="Choose a court" />
                     </SelectTrigger>
                     <SelectContent>
-                      {courts.map((court) => (
-                        <SelectItem key={court.id} value={court.id}>
-                          {court.name}
-                        </SelectItem>
-                      ))}
+                      {courts.map((court) => {
+                        const availableSlots =
+                          courtAvailability[court.id] ?? null;
+                        const isFullyBooked = availableSlots === 0;
+
+                        return (
+                          <SelectItem
+                            key={court.id}
+                            value={court.id}
+                            disabled={isFullyBooked}
+                          >
+                            <div className="flex items-center justify-between gap-3 w-full">
+                              <span>{court.name}</span>
+                              {availableSlots !== null && (
+                                <span
+                                  className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                                    isFullyBooked
+                                      ? "bg-destructive/20 text-destructive"
+                                      : availableSlots < 5
+                                        ? "bg-warning/20 text-warning"
+                                        : "bg-primary/20 text-primary"
+                                  }`}
+                                >
+                                  {isFullyBooked
+                                    ? "Full"
+                                    : `${availableSlots} slots`}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 )}
@@ -665,7 +826,7 @@ const AdminNewBooking = () => {
               </div>
             </div>
 
-            <div className="mt-6">
+            <div ref={timeSlotsRef} className="mt-6">
               <Label className="mb-2 block">Select Time Slots</Label>
               {loadingPricing ? (
                 <div className="flex justify-center py-8">
@@ -782,7 +943,7 @@ const AdminNewBooking = () => {
               variant="hero"
               className="w-full text-background"
               size="lg"
-              disabled={!isFormValid || submitting}
+              disabled={submitting}
               onClick={handleSubmit}
             >
               {submitting ? (

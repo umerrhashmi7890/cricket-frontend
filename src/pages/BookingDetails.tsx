@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +73,7 @@ const BookingDetails = () => {
   };
 
   const { toast } = useToast();
+  const customerDetailsRef = useRef<HTMLDivElement>(null);
   const [paymentOption, setPaymentOption] = useState("full");
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
@@ -105,11 +106,6 @@ const BookingDetails = () => {
       ? finalTotal
       : Math.max(0, Math.round(finalTotal * 0.5 * 100) / 100);
 
-  // Check if phone is valid (Saudi format)
-  const isPhoneValid =
-    formData.phone.trim() &&
-    /^(\+966|05)[0-9]{8,9}$/.test(formData.phone.replace(/\s/g, ""));
-
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
       toast({
@@ -120,11 +116,11 @@ const BookingDetails = () => {
       return;
     }
 
-    // Validate phone number first
-    if (!isPhoneValid) {
+    // Validate phone number is entered
+    if (!formData.phone.trim()) {
       toast({
         title: "Phone Required",
-        description: "Please enter a valid phone number to apply promo codes",
+        description: "Please enter your phone number to apply promo codes",
         variant: "destructive",
       });
       return;
@@ -188,16 +184,10 @@ const BookingDetails = () => {
 
     if (!formData.phone.trim()) {
       newErrors.phone = "Phone number is required";
-    } else if (
-      !/^(\+966|05)[0-9]{8,9}$/.test(formData.phone.replace(/\s/g, ""))
-    ) {
-      newErrors.phone = "Please enter a valid Saudi phone number";
     }
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
     }
 
     setErrors(newErrors);
@@ -207,6 +197,11 @@ const BookingDetails = () => {
   const handleContinue = (e: React.MouseEvent) => {
     if (!validateForm()) {
       e.preventDefault();
+      // Scroll to customer details section to show errors
+      customerDetailsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   };
 
@@ -283,7 +278,10 @@ const BookingDetails = () => {
               </div>
 
               {/* Customer Details */}
-              <div className="bg-card rounded-xl border p-6">
+              <div
+                ref={customerDetailsRef}
+                className="bg-card rounded-xl border p-6"
+              >
                 <h2 className="font-semibold text-foreground mb-4">
                   Your Information
                 </h2>
@@ -338,7 +336,7 @@ const BookingDetails = () => {
                     <Label htmlFor="email">Email Address *</Label>
                     <Input
                       id="email"
-                      type="email"
+                      type="text"
                       placeholder="your@email.com"
                       value={formData.email}
                       onChange={(e) =>
@@ -462,7 +460,7 @@ const BookingDetails = () => {
                       `You saved ${promoDiscount.toFixed(0)} SAR`}
                   </p>
                 )}
-                {!isPhoneValid && !promoApplied && (
+                {!formData.phone.trim() && !promoApplied && (
                   <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                     <Info className="w-3 h-3" />
                     Enter your phone number above to apply promo codes

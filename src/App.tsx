@@ -35,8 +35,6 @@ import AdminCalendar from "./pages/admin/AdminCalendar";
 
 const queryClient = new QueryClient();
 
-// console.log("API URL:", import.meta.env.VITE_API_URL);
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

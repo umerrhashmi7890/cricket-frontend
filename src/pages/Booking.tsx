@@ -189,7 +189,7 @@ const Booking = () => {
 
       // 9 AM to 11 PM
       for (let hour = 9; hour < 24; hour++) {
-        const isPastHour = isToday && hour < currentHour;
+        const isPastHour = isToday && hour <= currentHour;
         if (!isPastHour) {
           const startTime = `${hour.toString().padStart(2, "0")}:00`;
           let endHour = hour + 1;
@@ -292,7 +292,7 @@ const Booking = () => {
       const price = getPriceForSlot(selectedDate, hour);
 
       // Check if this hour has passed (only for today)
-      const isPastHour = isToday && hour < currentHour;
+      const isPastHour = isToday && hour <= currentHour;
 
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:00`,

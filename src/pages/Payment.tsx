@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { Lock, Shield, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { adminApi } from "@/lib/api";
+import { adminApi, bookingApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 const Payment = () => {
   const location = useLocation();
@@ -34,6 +35,45 @@ const Payment = () => {
         throw new Error("Customer information is required");
       }
 
+      // RE-VALIDATE AVAILABILITY - Critical race condition prevention
+      // This catches if admin or another client booked the same slots
+      const formattedDate = format(new Date(bookingData.date), "yyyy-MM-dd");
+      const timeSlots = bookingData.slots.map((slot: string) => {
+        const [hour, minute] = slot.split(":").map(Number);
+        const endHour = (hour + 1) % 24;
+        return {
+          startTime: slot,
+          endTime: `${endHour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`,
+        };
+      });
+
+      const availabilityCheck = await bookingApi.checkBatchAvailability({
+        bookingDate: formattedDate,
+        timeSlots,
+        courtIds: [bookingData.courtId],
+      });
+
+      // Check if any of the selected slots are now unavailable
+      const courtData = availabilityCheck.data?.[bookingData.courtId];
+      if (courtData) {
+        const unavailableSlots: string[] = [];
+        Object.entries(courtData).forEach(([key, slotData]) => {
+          if (!slotData.available) {
+            unavailableSlots.push(slotData.startTime);
+          }
+        });
+
+        if (unavailableSlots.length > 0) {
+          toast({
+            title: "Slots No Longer Available",
+            description: `The following time slots are no longer available: ${unavailableSlots.join(", ")}. Someone else may have booked them. Please go back and select different slots.`,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // Handle free booking (100% discount) or amount too small for gateway
       if (
         bookingData.amountNow <= 0 ||
@@ -55,26 +95,54 @@ const Payment = () => {
         const endTime = `${endHour.toString().padStart(2, "0")}:${lastMin.toString().padStart(2, "0")}`;
 
         // Create booking directly without payment
-        const bookingResponse = await adminApi.bookings.create({
-          courtId: bookingData.courtId,
-          bookingDate: bookingData.date,
-          startTime,
-          endTime,
-          customerPhone: bookingData.customerPhone,
-          customerName: bookingData.customerName,
-          customerEmail: bookingData.customerEmail || undefined,
-          promoCode: bookingData.promoCode || undefined,
-          paymentStatus: "paid", // Mark as paid since amount is 0
-          amountPaid: 0,
-        });
+        try {
+          const bookingResponse = await adminApi.bookings.create({
+            courtId: bookingData.courtId,
+            bookingDate: bookingData.date,
+            startTime,
+            endTime,
+            customerPhone: bookingData.customerPhone,
+            customerName: bookingData.customerName,
+            customerEmail: bookingData.customerEmail || undefined,
+            promoCode: bookingData.promoCode || undefined,
+            paymentStatus: "paid", // Mark as paid since amount is 0
+            amountPaid: 0,
+          });
 
-        if (bookingResponse.success) {
-          // Redirect to confirmation with booking ID
-          window.location.href = `/booking/confirmation?bookingId=${bookingResponse.data._id}`;
-        } else {
-          throw new Error("Failed to create booking");
+          if (bookingResponse.success) {
+            // Redirect to confirmation with booking ID
+            window.location.href = `/booking/confirmation?bookingId=${bookingResponse.data._id}`;
+          } else {
+            throw new Error("Failed to create booking");
+          }
+          return;
+        } catch (bookingError: unknown) {
+          const err = bookingError as Error & {
+            response?: { data?: { message?: string } };
+          };
+          // Handle specific error for slot unavailability
+          if (
+            err.message?.includes("not available") ||
+            err.message?.includes("conflict") ||
+            err.response?.data?.message?.includes("not available")
+          ) {
+            toast({
+              title: "Slots No Longer Available",
+              description:
+                "These time slots were just booked by someone else. Please go back and select different time slots.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Booking Failed",
+              description:
+                err.message || "Failed to create booking. Please try again.",
+              variant: "destructive",
+            });
+          }
+          setIsLoading(false);
+          return;
         }
-        return;
       }
 
       // Create payment request and get Moyasar checkout URL
