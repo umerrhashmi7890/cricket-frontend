@@ -47,6 +47,7 @@ type AdminBooking = {
     name: string;
     description?: string;
     id?: string;
+    status?: "active" | "inactive" | "maintenance" | "archived";
   };
   bookingDate: string;
   startTime: string;
@@ -472,6 +473,11 @@ const AdminBookings = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
                         {booking.court?.name || "N/A"}
+                        {booking.court?.status === "archived" && (
+                          <span className="ml-1 text-xs text-orange-500">
+                            (Archived)
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-foreground whitespace-nowrap">
@@ -805,6 +811,11 @@ const AdminBookings = () => {
                     <p className="text-xs text-muted-foreground mb-1">Court</p>
                     <p className="font-medium">
                       {selectedBooking.court?.name || "N/A"}
+                      {selectedBooking.court?.status === "archived" && (
+                        <span className="ml-1 text-xs text-orange-500">
+                          (Archived)
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-3">

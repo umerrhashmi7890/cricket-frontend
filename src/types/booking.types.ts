@@ -4,7 +4,7 @@ export interface Court {
   description: string;
   imageUrl?: string;
   features?: string[];
-  status: "active" | "inactive" | "maintenance";
+  status: "active" | "inactive" | "maintenance" | "archived";
   createdAt: string;
   updatedAt: string;
 }

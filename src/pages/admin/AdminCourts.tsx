@@ -384,14 +384,14 @@ const AdminCourts = () => {
       setCourts((prev) => prev.filter((court) => court.id !== deletingCourtId));
 
       toast({
-        title: "Court Deleted",
-        description: "Court has been deleted successfully",
+        title: "Court Archived",
+        description: "Court has been archived successfully",
       });
     } catch (error) {
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "Failed to delete court",
+          error instanceof Error ? error.message : "Failed to archive court",
         variant: "destructive",
       });
     } finally {
@@ -678,12 +678,13 @@ const AdminCourts = () => {
           <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Delete Court</DialogTitle>
+                <DialogTitle>Archive Court</DialogTitle>
               </DialogHeader>
 
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to delete this court? This action cannot
-                be undone.
+                Are you sure you want to archive this court? The court will be
+                hidden from selection but historical bookings will remain
+                intact.
               </p>
 
               <div className="flex gap-3 pt-4">
@@ -693,13 +694,13 @@ const AdminCourts = () => {
                   onClick={deleteCourt}
                   disabled={isDeleting}
                 >
-                  {isDeleting ? ( // ADD THIS CONDITIONAL
+                  {isDeleting ? (
                     <>
                       <Loader className="w-4 h-4 animate-spin mr-2" />
-                      Deleting...
+                      Archiving...
                     </>
                   ) : (
-                    "Delete"
+                    "Archive"
                   )}
                 </Button>
                 <Button

@@ -61,9 +61,13 @@ const AdminNewBooking = () => {
         setLoadingCourts(true);
         const response = await adminApi.courts.getAll();
         if (response.success && response.data) {
-          setCourts(response.data);
-          if (response.data.length > 0) {
-            setSelectedCourt(response.data[0].id);
+          // Filter out archived courts
+          const activeCourts = response.data.filter(
+            (court) => court.status !== "archived",
+          );
+          setCourts(activeCourts);
+          if (activeCourts.length > 0) {
+            setSelectedCourt(activeCourts[0].id);
           }
         }
       } catch (error) {
