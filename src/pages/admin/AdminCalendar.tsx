@@ -49,7 +49,11 @@ const AdminCalendar = () => {
     const fetchCourts = async () => {
       try {
         const response = await adminApi.courts.getAll();
-        setCourts(response.data || []);
+        // Sort courts alphabetically by name to match backend index mapping
+        const sortedCourts = (response.data || []).sort((a, b) =>
+          a.name.localeCompare(b.name),
+        );
+        setCourts(sortedCourts);
       } catch (err) {
         console.error("Error fetching courts:", err);
         setError("Failed to load courts");

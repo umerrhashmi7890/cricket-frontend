@@ -74,11 +74,12 @@ const Payment = () => {
         }
       }
 
-      // Handle free booking (100% discount) or amount too small for gateway
+      // Handle free booking (100% discount), pay at venue, or amount too small for gateway
       if (
         bookingData.amountNow <= 0 ||
         bookingData.finalTotal <= 0 ||
-        bookingData.amountNow < 1
+        bookingData.amountNow < 1 ||
+        bookingData.paymentOption === "venue"
       ) {
         // Sort slots and calculate start/end time
         const sortedSlots = [...bookingData.slots].sort((a, b) => {
@@ -105,7 +106,8 @@ const Payment = () => {
             customerName: bookingData.customerName,
             customerEmail: bookingData.customerEmail || undefined,
             promoCode: bookingData.promoCode || undefined,
-            paymentStatus: "paid", // Mark as paid since amount is 0
+            paymentStatus:
+              bookingData.paymentOption === "venue" ? "pending" : "paid", // Mark pending if pay at venue, paid if free promo
             amountPaid: 0,
           });
 
@@ -215,12 +217,22 @@ const Payment = () => {
           {/* Amount to Pay */}
           <div className="bg-card rounded-xl border p-6 mb-6 text-center">
             <p className="text-muted-foreground mb-2">
-              {bookingData.amountNow < 1 ? "Total Amount" : "Amount to Pay"}
+              {bookingData.finalTotal <= 0 ||
+              (bookingData.amountNow < 1 &&
+                bookingData.paymentOption !== "venue")
+                ? "Total Amount"
+                : bookingData.paymentOption === "venue"
+                  ? "Amount to Pay at Venue"
+                  : "Amount to Pay"}
             </p>
             <p className="text-4xl font-bold text-primary">
-              {bookingData.amountNow < 1
+              {bookingData.finalTotal <= 0 ||
+              (bookingData.amountNow < 1 &&
+                bookingData.paymentOption !== "venue")
                 ? "0"
-                : bookingData.amountNow?.toFixed(2) || "323.00"}{" "}
+                : bookingData.paymentOption === "venue"
+                  ? bookingData.finalTotal?.toFixed(2) || "0.00"
+                  : bookingData.amountNow?.toFixed(2) || "323.00"}{" "}
               SAR
             </p>
             {bookingData.paymentOption === "partial" &&
@@ -231,15 +243,29 @@ const Payment = () => {
                   SAR to be paid at venue
                 </p>
               )}
-            {bookingData.amountNow < 1 && (
-              <p className="text-sm text-success mt-2">
-                🎉 100% Discount Applied - No Payment Required
-              </p>
-            )}
+            {bookingData.paymentOption === "venue" &&
+              bookingData.finalTotal > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  💵 Pay the full amount when you arrive at the venue
+                </p>
+              )}
+            {(bookingData.finalTotal <= 0 || bookingData.amountNow < 1) &&
+              bookingData.paymentOption !== "venue" && (
+                <p className="text-sm text-success mt-2">
+                  🎉 100% Discount Applied - No Payment Required
+                </p>
+              )}
+            {bookingData.finalTotal <= 0 &&
+              bookingData.paymentOption === "venue" && (
+                <p className="text-sm text-success mt-2">
+                  🎉 100% Discount Applied - No Payment Required
+                </p>
+              )}
           </div>
 
-          {/* Payment Info - Only show if amount >= 1 SAR */}
-          {bookingData.amountNow >= 1 ? (
+          {/* Payment Info - Only show if amount >= 1 SAR and not venue payment */}
+          {bookingData.amountNow >= 1 &&
+          bookingData.paymentOption !== "venue" ? (
             <>
               <div className="bg-card rounded-xl border p-6 mb-6">
                 <h2 className="font-semibold text-foreground mb-4">
@@ -302,7 +328,7 @@ const Payment = () => {
             </>
           ) : (
             <>
-              {/* Free Booking - No Payment Required */}
+              {/* Free Booking (100% Promo) or Pay at Venue */}
               <div className="bg-card rounded-xl border p-6 mb-6">
                 <Button
                   onClick={handlePayment}
@@ -314,17 +340,24 @@ const Payment = () => {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Confirming Booking...
+                      {bookingData.paymentOption === "venue"
+                        ? "Creating Booking..."
+                        : "Confirming Booking..."}
                     </>
                   ) : (
-                    <>Confirm Booking</>
+                    <>
+                      {bookingData.paymentOption === "venue"
+                        ? "Confirm Booking"
+                        : "Confirm Booking"}
+                    </>
                   )}
                 </Button>
               </div>
 
               <p className="text-sm text-muted-foreground text-center">
-                Your booking will be confirmed instantly. A confirmation email
-                will be sent to you.
+                {bookingData.paymentOption === "venue"
+                  ? "Your booking will be confirmed. Please pay the full amount when you arrive at the venue."
+                  : "Your booking will be confirmed instantly. A confirmation email will be sent to you."}
               </p>
             </>
           )}

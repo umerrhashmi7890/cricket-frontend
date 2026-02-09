@@ -92,7 +92,9 @@ const BookingDetails = () => {
 
   const baseTotal = bookingData.total || 330;
   const discount =
-    paymentOption === "full" ? Math.round(baseTotal * 0.02 * 100) / 100 : 0;
+    paymentOption === "full" && !promoApplied
+      ? Math.round(baseTotal * 0.02 * 100) / 100
+      : 0;
   const promoDiscount = promoApplied && promoData ? promoData.discount : 0;
 
   // Use backend's finalAmount if promo applied, otherwise calculate manually
@@ -104,7 +106,9 @@ const BookingDetails = () => {
   const amountNow =
     paymentOption === "full"
       ? finalTotal
-      : Math.max(0, Math.round(finalTotal * 0.5 * 100) / 100);
+      : paymentOption === "partial"
+        ? Math.max(0, Math.round(finalTotal * 0.5 * 100) / 100)
+        : 0;
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
@@ -118,6 +122,11 @@ const BookingDetails = () => {
 
     // Validate phone number is entered
     if (!formData.phone.trim()) {
+      // Scroll to customer details section
+      customerDetailsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       toast({
         title: "Phone Required",
         description: "Please enter your phone number to apply promo codes",
@@ -131,7 +140,7 @@ const BookingDetails = () => {
       const response = await promoCodeApi.validate({
         code: promoCode,
         customerPhone: formData.phone,
-        bookingAmount: baseTotal - discount, // Apply promo after payment discount
+        bookingAmount: baseTotal, // Apply promo on base total (no 2% discount when promo is used)
       });
 
       if (response.data?.valid) {
@@ -376,16 +385,20 @@ const BookingDetails = () => {
                         <p className="font-medium text-foreground">
                           Pay 100% Online
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Get 2% discount on total amount
-                        </p>
+                        {!promoApplied && (
+                          <p className="text-sm text-muted-foreground">
+                            Get 2% discount on total amount
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 rounded bg-success/10 text-success text-xs font-medium">
-                        Save {(baseTotal * 0.02).toFixed(0)} SAR
-                      </span>
-                    </div>
+                    {!promoApplied && (
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 rounded bg-success/10 text-success text-xs font-medium">
+                          Save {(baseTotal * 0.02).toFixed(0)} SAR
+                        </span>
+                      </div>
+                    )}
                   </label>
                   <label
                     className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
@@ -402,6 +415,25 @@ const BookingDetails = () => {
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Pay remaining amount when you arrive
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                  <label
+                    className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
+                      paymentOption === "venue"
+                        ? "border-primary bg-primary/5"
+                        : "hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <RadioGroupItem value="venue" id="venue" />
+                      <div>
+                        <p className="font-medium text-foreground">
+                          Pay 100% at Venue
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          No online payment required
                         </p>
                       </div>
                     </div>
@@ -571,7 +603,9 @@ const BookingDetails = () => {
                     className="w-full mt-6 text-background"
                     size="lg"
                   >
-                    Continue to Payment
+                    {paymentOption === "venue" || finalTotal <= 0
+                      ? "Continue to Booking"
+                      : "Continue to Payment"}
                   </Button>
                 </Link>
 
