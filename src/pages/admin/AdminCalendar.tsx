@@ -112,13 +112,29 @@ const AdminCalendar = () => {
 
   const getBookingForSlot = (courtIndex: number, hour: number) => {
     const bookingDate = format(currentDate, "yyyy-MM-dd");
-    return bookings.find(
-      (b) =>
-        b.court === courtIndex &&
-        format(new Date(b.bookingDate), "yyyy-MM-dd") === bookingDate &&
-        hour >= b.startHour &&
-        hour < b.startHour + b.duration,
-    );
+    const found = bookings.find((b) => {
+      const bDate = format(new Date(b.bookingDate), "yyyy-MM-dd");
+      const courtMatch = b.court === courtIndex;
+      const dateMatch = bDate === bookingDate;
+      const hourMatch = hour >= b.startHour && hour < b.startHour + b.duration;
+
+      // Debug logging
+      if (courtMatch && dateMatch) {
+        console.log(
+          `Day View - Found booking for court ${courtIndex} on ${bookingDate}:`,
+          {
+            customer: b.customer,
+            startHour: b.startHour,
+            duration: b.duration,
+            checkingHour: hour,
+            hourMatch,
+          },
+        );
+      }
+
+      return courtMatch && dateMatch && hourMatch;
+    });
+    return found;
   };
 
   const isBookingStart = (courtIndex: number, hour: number) => {
