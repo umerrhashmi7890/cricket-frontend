@@ -52,7 +52,7 @@ const AdminDashboard = () => {
     [],
   );
 
-  console.log("Court Utilization:", courtUtilization);
+  console.log("stats", stats);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
