@@ -12,7 +12,7 @@ import {
 interface CalendarBooking {
   id: string;
   bookingId: string;
-  court: number;
+  courtId: string;
   courtName: string;
   bookingDate: string;
   startHour: number;
@@ -108,40 +108,37 @@ const AdminCalendar = () => {
     timeSlots.push(`${hour.toString().padStart(2, "0")}:00`);
   }
 
-  const courtNames = courts.map((c) => c.name);
-
-  const getBookingForSlot = (courtIndex: number, hour: number) => {
+  const getBookingForSlot = (courtId: string, hour: number) => {
     const bookingDate = format(currentDate, "yyyy-MM-dd");
-    const found = bookings.find((b) => {
-      const bDate = format(new Date(b.bookingDate), "yyyy-MM-dd");
-      const courtMatch = b.court === courtIndex;
-      const dateMatch = bDate === bookingDate;
-      const hourMatch = hour >= b.startHour && hour < b.startHour + b.duration;
+    // Find booking that STARTS at this hour first (priority)
+    const startingBooking = bookings.find(
+      (b) =>
+        b.courtId === courtId &&
+        format(new Date(b.bookingDate), "yyyy-MM-dd") === bookingDate &&
+        b.startHour === hour,
+    );
 
-      // Debug logging
-      if (courtMatch && dateMatch) {
-        console.log(
-          `Day View - Found booking for court ${courtIndex} on ${bookingDate}:`,
-          {
-            customer: b.customer,
-            startHour: b.startHour,
-            duration: b.duration,
-            checkingHour: hour,
-            hourMatch,
-          },
-        );
-      }
+    if (startingBooking) {
+      return startingBooking;
+    }
 
-      return courtMatch && dateMatch && hourMatch;
-    });
-    return found;
+    // Otherwise find booking that covers this hour
+    const coveringBooking = bookings.find(
+      (b) =>
+        b.courtId === courtId &&
+        format(new Date(b.bookingDate), "yyyy-MM-dd") === bookingDate &&
+        hour > b.startHour &&
+        hour < b.startHour + b.duration,
+    );
+
+    return coveringBooking;
   };
 
-  const isBookingStart = (courtIndex: number, hour: number) => {
+  const isBookingStart = (courtId: string, hour: number) => {
     const bookingDate = format(currentDate, "yyyy-MM-dd");
     return bookings.find(
       (b) =>
-        b.court === courtIndex &&
+        b.courtId === courtId &&
         format(new Date(b.bookingDate), "yyyy-MM-dd") === bookingDate &&
         b.startHour === hour,
     );
@@ -277,12 +274,12 @@ const AdminCalendar = () => {
                     <th className="w-20 px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase border-r">
                       Time
                     </th>
-                    {courtNames.map((courtName, index) => (
+                    {courts.map((court) => (
                       <th
-                        key={index}
+                        key={court.id}
                         className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase border-r last:border-r-0"
                       >
-                        {courtName}
+                        {court.name}
                       </th>
                     ))}
                   </tr>
@@ -295,9 +292,9 @@ const AdminCalendar = () => {
                         <td className="px-4 py-2 text-sm text-muted-foreground border-r bg-muted/30">
                           {time}
                         </td>
-                        {courtNames.map((_, courtIndex) => {
-                          const booking = getBookingForSlot(courtIndex, hour);
-                          const isStart = isBookingStart(courtIndex, hour);
+                        {courts.map((court) => {
+                          const booking = getBookingForSlot(court.id, hour);
+                          const isStart = isBookingStart(court.id, hour);
 
                           if (booking && !isStart) {
                             return null;
@@ -305,7 +302,7 @@ const AdminCalendar = () => {
 
                           return (
                             <td
-                              key={courtIndex}
+                              key={court.id}
                               className="px-2 py-1 border-r last:border-r-0 h-12"
                               rowSpan={booking ? booking.duration : 1}
                             >
@@ -366,21 +363,27 @@ const AdminCalendar = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {courtNames.map((courtName, courtIndex) => (
-                    <tr key={courtIndex} className="border-t">
+                  {courts.map((court) => (
+                    <tr key={court.id} className="border-t">
                       <td className="px-4 py-4 text-sm font-medium text-foreground border-r bg-muted/30">
-                        {courtName}
+                        {court.name}
                       </td>
                       {weekDays.map((dayDate, dayIndex) => {
                         const dayStr = format(dayDate, "yyyy-MM-dd");
-                        const dayBookings = bookings
-                          .filter(
-                            (b) =>
-                              b.court === courtIndex &&
-                              format(new Date(b.bookingDate), "yyyy-MM-dd") ===
-                                dayStr,
-                          )
-                          .slice(0, 2);
+                        const allDayBookings = bookings.filter(
+                          (b) =>
+                            b.courtId === court.id &&
+                            format(new Date(b.bookingDate), "yyyy-MM-dd") ===
+                              dayStr,
+                        );
+                        const displayLimit = 3;
+                        const dayBookings = allDayBookings.slice(
+                          0,
+                          displayLimit,
+                        );
+                        const remainingCount =
+                          allDayBookings.length - displayLimit;
+
                         return (
                           <td
                             key={dayIndex}
@@ -398,6 +401,11 @@ const AdminCalendar = () => {
                                   </p>
                                 </button>
                               ))}
+                              {remainingCount > 0 && (
+                                <div className="text-xs text-muted-foreground text-center py-1">
+                                  +{remainingCount} more
+                                </div>
+                              )}
                             </div>
                           </td>
                         );
@@ -473,7 +481,7 @@ const AdminCalendar = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Court</p>
                   <p className="font-medium">
-                    Court {selectedBooking.court + 1}
+                    Court {selectedBooking.courtName || "N/A"}
                   </p>
                 </div>
                 <div>

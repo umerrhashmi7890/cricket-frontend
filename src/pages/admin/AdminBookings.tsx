@@ -81,6 +81,8 @@ const AdminBookings = () => {
     null,
   );
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
+
+  console.log("📋 Bookings data:", bookings);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -97,6 +99,8 @@ const AdminBookings = () => {
       try {
         setLoading(true);
         const response = await adminApi.bookings.getAll();
+
+        console.log("✅ API response for bookings:", response);
 
         if (response.success && response.data) {
           const data = response.data as unknown;

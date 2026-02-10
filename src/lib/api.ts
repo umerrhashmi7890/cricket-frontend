@@ -14,7 +14,7 @@ import {
 interface CalendarBooking {
   id: string;
   bookingId: string;
-  court: number;
+  courtId: string;
   courtName: string;
   bookingDate: string;
   startHour: number;
