@@ -7,16 +7,12 @@ import {
   TrendingUp,
   Plus,
   ClipboardList,
-  FileText,
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
 import { adminApi } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
 
 interface DashboardStat {
   title: string;
@@ -51,8 +47,6 @@ const AdminDashboard = () => {
   const [courtUtilization, setCourtUtilization] = useState<CourtUtilization[]>(
     [],
   );
-
-  console.log("stats", stats);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
