@@ -400,6 +400,16 @@ export const adminApi = {
       adminApiCall<PromoCode>(`/promo-codes/${id}/toggle`, {
         method: "PATCH",
       }),
+    validate: (data: { code: string; bookingAmount: number }) =>
+      adminApiCall<{
+        valid: boolean;
+        message?: string;
+        discount?: number;
+        finalAmount?: number;
+      }>("/promo-codes/validate-admin", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   // Dashboard

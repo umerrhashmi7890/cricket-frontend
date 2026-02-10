@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,13 @@ const AdminNewBooking = () => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+
+  // Promo code state
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [applyingPromo, setApplyingPromo] = useState(false);
+  const [promoError, setPromoError] = useState("");
 
   // Loading states
   const [loadingCourts, setLoadingCourts] = useState(true);
@@ -110,7 +117,7 @@ const AdminNewBooking = () => {
   }, [toast]);
 
   // Fetch availability for all courts using batch endpoint
-  const fetchAllCourtsAvailability = async () => {
+  const fetchAllCourtsAvailability = useCallback(async () => {
     if (!selectedDate || courts.length === 0) {
       return;
     }
@@ -180,14 +187,14 @@ const AdminNewBooking = () => {
     } catch (error) {
       console.error("Failed to fetch court availability:", error);
     }
-  };
+  }, [courts, selectedDate]);
 
   // Fetch availability for all courts when date or courts change
   useEffect(() => {
     if (courts.length > 0 && selectedDate) {
       fetchAllCourtsAvailability();
     }
-  }, [courts, selectedDate]);
+  }, [courts, selectedDate, fetchAllCourtsAvailability]);
 
   // Generate time slots when court, date, or pricing changes
   useEffect(() => {
@@ -468,6 +475,56 @@ const AdminNewBooking = () => {
     }, 0);
   };
 
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) {
+      setPromoError("Please enter a promo code");
+      return;
+    }
+
+    const baseTotal = calculateTotal();
+    if (baseTotal === 0) {
+      setPromoError("Please select time slots first");
+      return;
+    }
+
+    try {
+      setApplyingPromo(true);
+      setPromoError("");
+
+      // Validate promo code without phone number check (admin can reuse)
+      const response = await adminApi.promoCodes.validate({
+        code: promoCode.trim().toUpperCase(),
+        bookingAmount: baseTotal,
+      });
+
+      if (response.data?.valid) {
+        setPromoApplied(true);
+        setPromoDiscount(response.data.discount || 0);
+        toast({
+          title: "Promo Code Applied",
+          description: `Discount of ${response.data.discount} SAR applied!`,
+        });
+      } else {
+        setPromoError(response.data?.message || "Invalid promo code");
+        setPromoApplied(false);
+        setPromoDiscount(0);
+      }
+    } catch (error) {
+      setPromoError(error.message || "Failed to validate promo code");
+      setPromoApplied(false);
+      setPromoDiscount(0);
+    } finally {
+      setApplyingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setPromoCode("");
+    setPromoApplied(false);
+    setPromoDiscount(0);
+    setPromoError("");
+  };
+
   const validateForm = (): boolean => {
     // Step 1: Check if court is selected
     if (!selectedCourt) {
@@ -641,6 +698,10 @@ const AdminNewBooking = () => {
         customerPhone: !isBlocked ? customerPhone.trim() : undefined,
         customerEmail:
           !isBlocked && customerEmail.trim() ? customerEmail.trim() : undefined,
+        promoCode:
+          promoApplied && promoCode
+            ? promoCode.trim().toUpperCase()
+            : undefined,
       };
 
       const response = await adminApi.bookings.createManual(bookingData);
@@ -735,6 +796,69 @@ const AdminNewBooking = () => {
                     onChange={(e) => setCustomerEmail(e.target.value)}
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Promo Code Section */}
+          {!isBlocked && (
+            <div className="bg-card rounded-xl border p-6">
+              <h2 className="font-semibold text-foreground mb-4">
+                Promo Code (Optional)
+              </h2>
+
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Enter promo code"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoError("");
+                      }}
+                      disabled={promoApplied || applyingPromo}
+                      className="uppercase"
+                    />
+                  </div>
+                  {!promoApplied ? (
+                    <Button
+                      onClick={handleApplyPromo}
+                      disabled={
+                        !promoCode.trim() ||
+                        applyingPromo ||
+                        selectedSlots.length === 0
+                      }
+                    >
+                      {applyingPromo ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Applying...
+                        </>
+                      ) : (
+                        "Apply"
+                      )}
+                    </Button>
+                  ) : (
+                    <Button variant="destructive" onClick={handleRemovePromo}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                {promoError && (
+                  <p className="text-sm text-destructive">{promoError}</p>
+                )}
+
+                {promoApplied && (
+                  <div className="flex items-center gap-2 text-success text-sm">
+                    <Check className="w-4 h-4" />
+                    <span>
+                      Promo code applied successfully! Discount: {promoDiscount}{" "}
+                      SAR
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -932,13 +1056,29 @@ const AdminNewBooking = () => {
 
             {!isBlocked && (
               <div className="border-t pt-4 mb-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-foreground">
-                    Total Amount
-                  </span>
-                  <span className="text-2xl font-bold text-primary">
-                    {calculateTotal()} SAR
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium text-foreground">
+                      {calculateTotal()} SAR
+                    </span>
+                  </div>
+                  {promoApplied && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-success">Promo Discount</span>
+                      <span className="font-medium text-success">
+                        -{promoDiscount} SAR
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="font-semibold text-foreground">
+                      Total Amount
+                    </span>
+                    <span className="text-2xl font-bold text-primary">
+                      {Math.max(0, calculateTotal() - promoDiscount)} SAR
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
