@@ -296,6 +296,7 @@ const AdminCalendar = () => {
                           const booking = getBookingForSlot(court.id, hour);
                           const isStart = isBookingStart(court.id, hour);
 
+                          // Skip cell if covered by rowSpan from previous booking
                           if (booking && !isStart) {
                             return null;
                           }
@@ -304,7 +305,9 @@ const AdminCalendar = () => {
                             <td
                               key={court.id}
                               className="px-2 py-1 border-r last:border-r-0 h-12"
-                              rowSpan={booking ? booking.duration : 1}
+                              rowSpan={
+                                booking && isStart ? booking.duration : 1
+                              }
                             >
                               {booking ? (
                                 <button
