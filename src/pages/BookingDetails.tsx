@@ -592,6 +592,7 @@ const BookingDetails = () => {
                     phone: formData.phone,
                     email: formData.email,
                     paymentOption,
+                    originalTotal: baseTotal, // Original price before any discounts
                     finalTotal,
                     amountNow,
                     promoCode: promoApplied ? promoCode : undefined,

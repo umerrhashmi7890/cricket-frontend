@@ -162,6 +162,7 @@ const Payment = () => {
           customerPhone: bookingData.customerPhone,
           customerEmail: bookingData.customerEmail || "",
           paymentOption: bookingData.paymentOption,
+          originalTotal: bookingData.originalTotal || bookingData.finalTotal, // Fallback for old data
           finalTotal: bookingData.finalTotal,
           amountNow: bookingData.amountNow,
           promoCode: bookingData.promoCode || "",

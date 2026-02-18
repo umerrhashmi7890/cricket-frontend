@@ -132,11 +132,6 @@ const Confirmation = () => {
               const existingBooking = existingBookingResponse.data;
               const bookingId = existingBooking._id || existingBooking.id;
 
-              console.log(
-                "✅ Booking already exists, displaying existing booking:",
-                bookingId,
-              );
-
               // Get court name from populated court field
               const courtName =
                 typeof existingBooking.court === "string"
@@ -236,11 +231,6 @@ const Confirmation = () => {
                   const booking = pollingResponse.data;
                   const bookingId = booking._id || booking.id;
 
-                  console.log(
-                    `✅ Booking created by webhook (attempt ${attempts}):`,
-                    bookingId,
-                  );
-
                   const courtName =
                     typeof booking.court === "string"
                       ? "Court"
@@ -289,9 +279,23 @@ const Confirmation = () => {
             }
 
             // If we reach here, webhook didn't create booking in time
-            setError(
-              "Booking is being processed. You will receive a confirmation email shortly with your booking details.",
-            );
+            // Show success message with pending status instead of error
+            setBookingDetails({
+              bookingId: "Processing...",
+              court: bookingData?.court || "Court",
+              date: bookingData?.date
+                ? format(new Date(bookingData.date), "EEEE, MMMM d, yyyy")
+                : "N/A",
+              time: "Confirming...",
+              slots: bookingData?.slots || [],
+              duration: `${bookingData?.slots?.length || 0}h`,
+              totalPaid: `${(paymentResponse.data.amount / 100).toFixed(2)} SAR`,
+              paymentMethod: paymentResponse.data.source?.company || "Card",
+              customerName: bookingData?.customerName || "N/A",
+              customerPhone: bookingData?.customerPhone || "N/A",
+              customerEmail: bookingData?.customerEmail || "",
+            });
+            setPollingStatus("pending"); // Special status to show pending message
             setLoading(false);
             return;
           }
@@ -340,6 +344,152 @@ const Confirmation = () => {
         <p className="text-sm text-muted-foreground/60">
           Please wait while we confirm your booking
         </p>
+      </div>
+    );
+  }
+
+  // Handle webhook pending (payment succeeded but booking not created yet)
+  if (pollingStatus === "pending" && bookingDetails) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <section className="bg-warning py-16">
+          <div className="container mx-auto px-4 text-center">
+            <div className="w-20 h-20 rounded-full bg-warning-foreground/20 flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-12 h-12 text-warning-foreground" />
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-warning-foreground mb-2">
+              Payment Successful!
+            </h1>
+            <p className="text-warning-foreground/90 text-lg mb-2">
+              Your booking is being processed
+            </p>
+          </div>
+        </section>
+
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            {/* Payment Confirmation */}
+            <div className="bg-card rounded-xl border p-6 mb-6">
+              <div className="flex items-start gap-4 mb-4">
+                <CheckCircle className="w-6 h-6 text-success flex-shrink-0 mt-1" />
+                <div>
+                  <h2 className="font-semibold text-foreground text-lg mb-2">
+                    Payment Confirmed
+                  </h2>
+                  <p className="text-muted-foreground mb-4">
+                    Your payment of{" "}
+                    <span className="font-bold text-success">
+                      {bookingDetails.totalPaid}
+                    </span>{" "}
+                    has been successfully processed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-primary">1</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Your booking is currently being confirmed in our system
+                  </p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-primary">2</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    You will receive a confirmation email with your booking
+                    details shortly
+                  </p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-primary">3</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-semibold text-foreground">
+                      If you don't receive an email within 4 hours
+                    </span>
+                    , please contact us with your payment details
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Summary */}
+            <div className="bg-card rounded-xl border p-6 mb-6">
+              <h3 className="font-semibold text-foreground mb-4">
+                Booking Summary
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Court:</span>
+                  <span className="font-medium text-foreground">
+                    {bookingDetails.court}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date:</span>
+                  <span className="font-medium text-foreground">
+                    {bookingDetails.date}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Duration:</span>
+                  <span className="font-medium text-foreground">
+                    {bookingDetails.duration}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-2 border-t">
+                  <span className="text-muted-foreground">Amount Paid:</span>
+                  <span className="font-bold text-success">
+                    {bookingDetails.totalPaid}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="bg-secondary/10 rounded-xl p-4 mb-6">
+              <h3 className="font-semibold text-foreground mb-2">Need Help?</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                If you have any questions or don't receive your confirmation
+                email within 4 hours, please contact us:
+              </p>
+              <div className="space-y-1 text-sm">
+                <p className="text-foreground">
+                  <span className="text-muted-foreground">Phone:</span>{" "}
+                  <a
+                    href="tel:+966540953439"
+                    className="font-medium hover:text-primary"
+                  >
+                    +966 54 095 3439
+                  </a>
+                </p>
+                <p className="text-foreground">
+                  <span className="text-muted-foreground">Email:</span>{" "}
+                  <a
+                    href="mailto:info@jeddahcricketnets.com"
+                    className="font-medium hover:text-primary"
+                  >
+                    info@jeddahcricketnets.com
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link to="/" className="flex-1">
+                <Button variant="outline" size="lg" className="w-full">
+                  Back to Home
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
