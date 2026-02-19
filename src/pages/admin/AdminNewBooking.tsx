@@ -353,10 +353,14 @@ const AdminNewBooking = () => {
       // These slots use the selected date's pricing (they belong to this booking day)
       const price = getPriceForSlot(selectedDate, hour);
 
-      // For next day slots (12 AM - 4 AM), they're only available if:
-      // - It's NOT today, OR
-      // - It's today AND current hour is >= 9 (meaning we're in the booking window)
-      const isPastHour = isToday && currentHour < 9;
+      // For early morning slots (00:00-04:00):
+      // If current time is 00:00-04:00 (early morning) and selected date is TODAY,
+      // these slots are for TONIGHT (haven't happened yet), so all available.
+      // Example: It's Thursday 00:10 AM, viewing Thursday → 12AM-4AM slots are for Thursday NIGHT → all available
+      // Only mark as past if we're viewing YESTERDAY's page
+      const isCurrentlyEarlyMorning =
+        isToday && currentHour >= 0 && currentHour < 4;
+      const isPastHour = false; // Early morning slots on today's page are always for tonight
 
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:00`,
