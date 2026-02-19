@@ -79,6 +79,26 @@ const Confirmation = () => {
                   ? booking.customer
                   : { name: "Guest", phone: "", email: "" };
 
+              // Determine payment method based on booking status
+              let paymentMethod = "Card";
+              let displayAmount = `${booking.amountPaid || 0} SAR`;
+
+              if (
+                booking.paymentStatus === "pending" &&
+                booking.amountPaid === 0
+              ) {
+                // Pay at venue
+                paymentMethod = "Pay at Venue";
+                displayAmount = `${booking.finalPrice || 0} SAR (Due at Venue)`;
+              } else if (
+                booking.discountAmount > 0 &&
+                booking.finalPrice === 0
+              ) {
+                // 100% discount via promo code
+                paymentMethod = "Promo Code (100% Discount)";
+                displayAmount = "0 SAR";
+              }
+
               setBookingDetails({
                 bookingId: booking._id || booking.id || bookingId,
                 court: courtName,
@@ -89,8 +109,8 @@ const Confirmation = () => {
                 time: `${booking.startTime} - ${booking.endTime}`,
                 slots: [],
                 duration: `${booking.durationHours || 0}h`,
-                totalPaid: `${booking.amountPaid || 0} SAR`,
-                paymentMethod: "Promo Code (100% Discount)",
+                totalPaid: displayAmount,
+                paymentMethod: paymentMethod,
                 customerName: customerData.name || "Guest",
                 customerPhone: customerData.phone || "",
                 customerEmail: customerData.email || "",
