@@ -81,6 +81,9 @@ const Payment = () => {
         bookingData.amountNow < 1 ||
         bookingData.paymentOption === "venue"
       ) {
+        // Format date to YYYY-MM-DD to avoid timezone issues
+        const formattedDate = format(new Date(bookingData.date), "yyyy-MM-dd");
+
         // Sort slots and calculate start/end time
         const sortedSlots = [...bookingData.slots].sort((a, b) => {
           const [aHour] = a.split(":").map(Number);
@@ -96,21 +99,23 @@ const Payment = () => {
         const endTime = `${endHour.toString().padStart(2, "0")}:${lastMin.toString().padStart(2, "0")}`;
 
         // Create booking directly without payment
-        try {
-          const bookingResponse = await adminApi.bookings.create({
-            courtId: bookingData.courtId,
-            bookingDate: bookingData.date,
-            startTime,
-            endTime,
-            customerPhone: bookingData.customerPhone,
-            customerName: bookingData.customerName,
-            customerEmail: bookingData.customerEmail || undefined,
-            promoCode: bookingData.promoCode || undefined,
-            paymentStatus:
-              bookingData.paymentOption === "venue" ? "pending" : "paid", // Mark pending if pay at venue, paid if free promo
-            amountPaid: 0,
-          });
+        const bookingResponse = await adminApi.bookings.create({
+          courtId: bookingData.courtId,
+          bookingDate: formattedDate,
+          startTime,
+          endTime,
+          customerPhone: bookingData.customerPhone,
+          customerName: bookingData.customerName,
+          customerEmail: bookingData.customerEmail || undefined,
+          promoCode: bookingData.promoCode || undefined,
+          paymentStatus:
+            bookingData.paymentOption === "venue" ? "pending" : "paid", // Mark pending if pay at venue, paid if free promo
+          amountPaid: 0,
+        });
 
+        // console.log("Booking response is : ", JSON.stringify(bookingResponse));
+        // return;
+        try {
           if (bookingResponse.success) {
             // Redirect to confirmation with booking ID
             window.location.href = `/booking/confirmation?bookingId=${bookingResponse.data._id}`;

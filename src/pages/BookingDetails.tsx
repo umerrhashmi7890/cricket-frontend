@@ -29,6 +29,8 @@ const BookingDetails = () => {
     total: 330,
   };
 
+  console.log("bookingData from location state: ", bookingData);
+
   // Calculate start and end time from slots
   const calculateTimeRange = () => {
     if (!bookingData.slots || bookingData.slots.length === 0) {
