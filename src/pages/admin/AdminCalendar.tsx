@@ -108,39 +108,46 @@ const AdminCalendar = () => {
     timeSlots.push(`${hour.toString().padStart(2, "0")}:00`);
   }
 
-  const getBookingForSlot = (courtId: string, hour: number) => {
+  const getSlotIndex = (hour: number): number => {
+    // Calendar grid order: 09:00..23:00, 00:00..03:00
+    return hour >= 9 ? hour - 9 : 15 + hour;
+  };
+
+  const getBookingForSlot = (courtId: string, slotIndex: number) => {
     const bookingDate = format(currentDate, "yyyy-MM-dd");
+
     // Find booking that STARTS at this hour first (priority)
     const startingBooking = bookings.find(
       (b) =>
         b.courtId === courtId &&
         format(new Date(b.bookingDate), "yyyy-MM-dd") === bookingDate &&
-        b.startHour === hour,
+        getSlotIndex(b.startHour) === slotIndex,
     );
 
     if (startingBooking) {
       return startingBooking;
     }
 
-    // Otherwise find booking that covers this hour
+    // Otherwise find booking that covers this slot
     const coveringBooking = bookings.find(
       (b) =>
         b.courtId === courtId &&
         format(new Date(b.bookingDate), "yyyy-MM-dd") === bookingDate &&
-        hour > b.startHour &&
-        hour < b.startHour + b.duration,
+        slotIndex > getSlotIndex(b.startHour) &&
+        slotIndex < getSlotIndex(b.startHour) + b.duration,
     );
 
     return coveringBooking;
   };
 
-  const isBookingStart = (courtId: string, hour: number) => {
+  const isBookingStart = (courtId: string, slotIndex: number) => {
     const bookingDate = format(currentDate, "yyyy-MM-dd");
+
     return bookings.find(
       (b) =>
         b.courtId === courtId &&
         format(new Date(b.bookingDate), "yyyy-MM-dd") === bookingDate &&
-        b.startHour === hour,
+        getSlotIndex(b.startHour) === slotIndex,
     );
   };
 
@@ -286,15 +293,19 @@ const AdminCalendar = () => {
                 </thead>
                 <tbody>
                   {timeSlots.map((time, timeIndex) => {
-                    const hour = parseInt(time.split(":")[0]);
+                    const slotIndex = timeIndex;
+
                     return (
                       <tr key={timeIndex} className="border-t">
                         <td className="px-4 py-2 text-sm text-muted-foreground border-r bg-muted/30">
                           {time}
                         </td>
                         {courts.map((court) => {
-                          const booking = getBookingForSlot(court.id, hour);
-                          const isStart = isBookingStart(court.id, hour);
+                          const booking = getBookingForSlot(
+                            court.id,
+                            slotIndex,
+                          );
+                          const isStart = isBookingStart(court.id, slotIndex);
 
                           // Skip cell if covered by rowSpan from previous booking
                           if (booking && !isStart) {
